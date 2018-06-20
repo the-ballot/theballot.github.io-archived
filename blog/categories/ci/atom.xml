@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: ci | The Ballot]]></title>
+  <link href="https://www.theballot.com/blog/categories/ci/atom.xml" rel="self"/>
+  <link href="https://www.theballot.com/"/>
+  <updated>2018-06-20T04:04:05-04:00</updated>
+  <id>https://www.theballot.com/</id>
+  <author>
+    <name><![CDATA[]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Upgrading Volt to CircleCI 2.0]]></title>
+    <link href="https://www.theballot.com/blog/2018/01/19/upgrading-volt-to-circleci-two/"/>
+    <updated>2018-01-19T00:00:00-05:00</updated>
+    <id>https://www.theballot.com/blog/2018/01/19/upgrading-volt-to-circleci-two</id>
+    <content type="html"><![CDATA[<p>I was really excited about CircleCI 2.0, especially the <a href="https://circleci.com/docs/2.0/workflows/">workflows
+features</a>. It seemed to me that with the work they had done here,
+really complicated builds would be able to be configured in a way that made more
+sense than on 1.0. This was something that was causing me grief on one of our
+projects so I upgraded to 2.0. It was pretty hard to get green and once we did,
+we decided to downgrade back to 1.0. Here's why.</p>
+
+<!-- more -->
+
+
+<p>Volt is the internal name for the app that our Partners use to enter information
+about their artworks and artists into the Artsy platform. It's a Rails app and
+has a pretty big and slow test suite. Over time, we've ended up with a good
+number of things that run during CI for this project:</p>
+
+<ul>
+<li><a href="http://danger.systems/">Danger</a></li>
+<li><a href="http://rubocop.readthedocs.io/">RuboCop</a></li>
+<li><a href="https://prettier.io/">Prettier</a></li>
+<li><a href="https://facebook.github.io/jest/">Jest tests</a></li>
+<li><a href="https://github.com/jejacks0n/teaspoon">Teaspoon tests</a></li>
+<li><a href="http://rspec.info/">RSpec tests</a></li>
+</ul>
+
+
+<p>Some of these things are fast and some are slow. Ok, fine, really only the view
+specs are slow - running them in isolation takes around 20 minutes on my laptop.</p>
+
+<p>My goal was to separate out the fast stuff, run that in parallel and only if all
+that passed would I run the view specs. This should get feedback to developers
+faster when they've broken something and not waste time running the slowest part
+of the CI stack.</p>
+
+<p>Artsy has 7 containers with CircleCI and Volt takes up 6 of them, so being able
+to break apart a run into pieces seemed like a good thing for the wider Artsy
+engineering organization too - developers working on something else would spend
+less time blocked by Volt runs and developers working on Volt shouldn't notice
+anything. Foreshadowing!!</p>
+
+<p>Here's the CircleCI 2.0 <a href="https://gist.github.com/jonallured/45032779506138186973af7cb94b5363">config</a> I ended up with and here's a pretty picture
+of what our CircleCI 2.0 builds looked like:</p>
+
+<p><img src="/images/circle-two-oh/volt-circle-two-workflow.png" alt="/images/circle-two-oh/volt-circle-two-workflow.png" /></p>
+
+<p>I'm really proud of this - it's cool and it was hard to figure out!</p>
+
+<p>But then we lived with it and noticed something that really slowed us down. Each
+rounded rect in that picture is called a job and is scheduled along with
+anything else you have going on at CircleCI. Let's talk about parallelism for a
+moment. Take that second column - those jobs all run in parallel, but you can
+also set any of your jobs to have also be parallelised. For instance, that
+<code>fast_spec</code> job was <a href="https://gist.github.com/jonallured/45032779506138186973af7cb94b5363#file-config-yml-L114">set to a parallelism of 6</a>. That means in order
+to run all of the jobs in column two, we'd have to have a total of 11
+containers!</p>
+
+<p>While tinkering with this, I used all sorts of values for the parallelism of the
+<code>fast_specs</code> job, even trying no parallelism.</p>
+
+<p>It didn't seem to matter - having these jobs in a queue along with whatever
+other projects consume the Artsy containers meant that once the build step was
+done and the next column of jobs kicked off, only some of the jobs would be
+able to run and we'd be stuck waiting for more containers. But those are fast
+jobs, so they would finish pretty quickly. But then again, moving on to the
+<code>view_specs</code> job would be slow because it also wanted 6 containers to run in
+~10 minutes.</p>
+
+<p>What this meant was that all told it often took 45 minutes of wall time to
+finish one of these builds even though as CircleCI reports it, they only took
+like 15 minutes.</p>
+
+<p>We reached out to CircleCI to explain as best we could our situation but didn't
+get a lot of help there. They advised that going back to 1.0 might be wise for
+now. This is fine - we can't expect all of CircleCI's features are going to be
+perfect for us and our particular projects.</p>
+
+<p>For now, we're back to CircleCI 1.0 and have tried to achieve a similar setup,
+but without the glamorous workflow functionality and cool diagram. I'm looking
+forward to seeing how CircleCI evolves their workflow feature and hope that it
+may end up in a place that can work for this project.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Xcode 8 Manual Codesigning with Fastlane]]></title>
+    <link href="https://www.theballot.com/blog/2017/01/13/xcode-8-fastlane-codesigning/"/>
+    <updated>2017-01-13T14:00:00-05:00</updated>
+    <id>https://www.theballot.com/blog/2017/01/13/xcode-8-fastlane-codesigning</id>
+    <content type="html"><![CDATA[<p>New year, new deploy process! Late last year our mobile team completed the update to Swift 3 (and thus, the update to Xcode 8). The latest version of Apple's IDE includes a lovely feature: automating provisioning profile management! (Note: not sarcasm, the feature is really nice. Check out the <a href="https://developer.apple.com/videos/play/wwdc2016/401/">WWDC video</a> for an in-depth exploration.)</p>
+
+<p><img src="/images/2017-01-13-xcode-8-fastlane-codesigning/xcode-screenshot.png" alt="Automatic code signing settings" /></p>
+
+<p>However, when I went to make our first <a href="http://artsy.github.io/blog/2015/12/15/Automating-Testflight-Deploys/">automated deploy</a> today, things didn't work; I got a somewhat cryptic error about code signing.</p>
+
+<!-- more -->
+
+
+<blockquote><p>Code signing is required for product type 'Application' in SDK 'iOS 10.1'</p></blockquote>
+
+<p>Code signing was failing for our project. Hmm. First step in fixing a bug is always to reproduce it, which I could do locally. I started looking into the code that manages our deploys' signing process and got lost. My colleague Orta was kind enough to give me a hand.</p>
+
+<p>Some background: the Fastlane suite of tools includes <a href="https://github.com/fastlane/fastlane/tree/master/match">Match</a>, which manages your signing certificates and provisioning profiles in a private GitHub repository. We don't use match due to complications with our multiple apps, but we use <a href="https://github.com/artsy/eigen/blob/608f60860165dd9b3c376da00492a3cb36bf5214/fastlane/Fastfile#L95-L130">very similar logic</a> to clone the repo, extract the certificate and profile, and install the keys on CI.</p>
+
+<p>So what wasn't working?</p>
+
+<p>Well it turns out that Xcode's fancy new automatic code signing was incompatible with our manual process of specifying certificates and profiles. The easy solution would be to simply disable that setting, but that would be a shame: the new automatic code signing makes developing on devices way easier and we didn't want to sacrifice that for the sake of our deploys.</p>
+
+<p>So we went looking and luckily found <a href="https://github.com/artsy/eigen/pull/2104">the solution</a>. We amended our codesigning setup with the <a href="https://docs.fastlane.tools/actions/#update_project_provisioning">update_project_provisioning</a> and <a href="https://docs.fastlane.tools/actions/#update_project_team">update_project_team</a> Fastlane actions, and the <a href="https://github.com/hjanuschka/fastlane-plugin-update_project_codesigning">update_project_codesigning plugin</a>. Basically, we disable the automatic signing feature and then manually set the provisioning profile to the one we cloned from our private GitHub repo.</p>
+
+<p>So remember folks, if you're ever asked to sacrifice ease of development for the sake of getting computers to behave, there's probably a better way.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Automating TestFlight Deploys using Fastlane]]></title>
+    <link href="https://www.theballot.com/blog/2015/12/15/Automating-Testflight-Deploys/"/>
+    <updated>2015-12-15T00:00:00+00:00</updated>
+    <id>https://www.theballot.com/blog/2015/12/15/Automating-Testflight-Deploys</id>
+    <content type="html"><![CDATA[<p>I've been a really <a href="http://artsy.github.io/blog/2015/09/18/Cocoa-Architecture-Dependencies/">strong supporter</a> of the <a href="https://fastlane.tools">fastlane</a> toolset. I think it fixes a lot of common developer problems, in a space that Apple doesn't really touch. The command line.</p>
+
+<p>We've added hints of fastlane to our apps at different rates, <a href="https://github.com/artsy/eidolon/">Eidolon</a> uses fastlane for everything but <a href="https://github.com/artsy/eigen/">Eigen</a>/<a href="https://github.com/artsy/energy">Energy</a>/<a href="https://github.com/artsy/emergence">Emergence</a> have been pretty slow on the uptake, though they have more complicated setups, being App Store apps.</p>
+
+<p>When <a href="https://krausefx.com/">Felix</a> announced <a href="https://krausefx.com/blog/introducing-match-a-new-approach-to-code-signing">match</a> this week, I felt like he tackled a problem we face in our <a href="http://artsy.net/job/mobile-engineer">small dev team</a>. I integrated this, only to find that it could also fix my problems with deployment. The rest of this post goes into the "how I did this." You can also cheat and look at the <a href="https://github.com/artsy/eigen/compare/d06270882aadec8f03927455a5229b53dd0a73c8...9eaf9082ebdcdf75f12ad2804260587e01526f2d">commits</a> directly.</p>
+
+<!-- more -->
+
+
+<p>First up, a TLDR for <a href="https://github.com/fastlane/match">match</a>. <em>match is a tool that keeps all of your code-signing setup in a private git repo.</em> We currently keep them in a shared 1Password vault. By switching to using a private git repo we can can use our existing GitHub authentication for CI to provide access to the certificates for signing on circle.</p>
+
+<p>We use a <a href="https://github.com/artsy/eigen/blob/master/Makefile">Makefile</a>, I know that fastlane provides an awesome tool in the form of <a href="https://github.com/fastlane/fastlane#features">fastlane lanes</a> - but we're pretty happy with a Makefile, they're the simplest tool that does what we need.</p>
+
+<p>I wanted to lower the barrier for us shipping betas, so I opted to add another build step in the CI process. This step checks what branch is it, and if it's the beta branch, grab the certs, then deploy.</p>
+
+<pre><code class="sh">deploy_if_beta_branch:
+    if [ "$(LOCAL_BRANCH)" == "beta" ]; then make certs; make ipa; make distribute; fi
+</code></pre>
+
+<p><code>make certs</code> is really simple, it runs: <code>bundle exec match appstore --readonly</code> which and pulls metadata from a <a href="https://github.com/artsy/eigen/blob/9eaf9082ebdcdf75f12ad2804260587e01526f2d/fastlane/Matchfile">Matchfile</a>. This means we can sign app store builds on CI.</p>
+
+<p>If you don't know what the <code>bundle exec</code> prefix is, I'd recommend reading my guide on the CocoaPods website for <a href="https://guides.cocoapods.org/using/a-gemfile.html">Gemfile</a>s.</p>
+
+<p>The next step is generating an ipa, we do this with <a href="https://github.com/fastlane/gym">gym</a> via <code>make ipa</code> which looks like this:</p>
+
+<pre><code class="sh">ipa: set_git_properties change_version_to_date
+    bundle exec gym
+</code></pre>
+
+<p>It executes some make tasks to ensure we know what git commit each build is, and we use the date to provide a faux-<a href="http://semver.org">semver</a> for apps.</p>
+
+<p>Gym will build our app, according to our <a href="https://github.com/artsy/eigen/blob/9eaf9082ebdcdf75f12ad2804260587e01526f2d/fastlane/GymFile">Gymfile</a>. Nothing too surprising in there. It will output an <a href="http://apple.stackexchange.com/questions/26550/what-does-ipa-stand-for">ipa</a> and a <a href="http://stackoverflow.com/questions/3656391/whats-the-dsym-and-how-to-use-it-ios-sdk">dsym</a> that <code>make distribute</code> can handle.</p>
+
+<p><code>make distribute</code> is a pretty easy one, we generate a CHANGELOG via Ruby, then run the command <code>bundle exec pilot upload -i build/Artsy.ipa</code>, it will ship it to iTunes Connect after configuration from the <a href="https://github.com/artsy/eigen/blob/9eaf9082ebdcdf75f12ad2804260587e01526f2d/fastlane/AppFile">Appfile</a>. This is great, but it goes one better. It will, by default, run a synchronous check for whether the App has finished processing.</p>
+
+<p></div></div><a href='/images/2015-12-15-Automating-Testflight-Deploys/ci-itunes-screenshot.png'><img src="/images/2015-12-15-Automating-Testflight-Deploys/ci-itunes-screenshot.png"></a><div class='meta-container'><header>&nbsp;</header></div><div class='date-container'>&nbsp;</div><div class='content-container'><div class='entry-content'></p>
+
+<p>This is awesome. I'd like to add a Slack message to tell us that it's shipped too, which would be much easier if we used a <a href="https://github.com/fastlane/fastlane/tree/master/docs#after_all-block">Fastfile</a>. We've not entirely moved all of our apps to TestFlight, this is our first experiment in the space, we've been really happy with Hockey, and still are. However, without trying new things we'll never be able to know what we should consider internal best practices.</p>
+]]></content>
+  </entry>
+  
+</feed>

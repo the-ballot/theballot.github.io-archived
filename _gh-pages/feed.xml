@@ -1,0 +1,1162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Artsy Engineering</title>
+    <description></description>
+    <link>http://artsy.github.io/</link>
+    <atom:link href="http://artsy.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Mon, 18 Jun 2018 17:44:34 +0000</pubDate>
+    <lastBuildDate>Mon, 18 Jun 2018 17:44:34 +0000</lastBuildDate>
+    <generator>Jekyll v2.5.3</generator>
+    
+      <item>
+        <title>Managing Secrets in a React Native App</title>
+        <description>&lt;!--
+Iɴᴛʀᴏᴅᴜᴄᴛɪᴏɴ
+--&gt;
+
+
+&lt;p&gt;Hi! I&#39;m Erik, a software engineer on the Purchase team. One of the most visible payoffs from Artsy&#39;s investments in React Native &lt;a href=&quot;https://artsy.github.io/search/?q=react+native&quot;&gt;over the past two years&lt;/a&gt; has been the opening up of our mobile codebase to contributors like myself coming primarily from web stacks. It&#39;s nice to be able to build mobile interfaces with the same declarative API used by so many of our web projects, but sometimes we still need to bridge the divide to our Objective-C and Swift ecosystem. One such case: replacing the app secrets typically loaded from a deploy environment or web developer&#39;s &lt;a href=&quot;https://www.npmjs.com/package/dotenv&quot;&gt;dotenv&lt;/a&gt; file.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+&lt;!--
+Mᴀɪɴ Bᴏᴅʏ
+--&gt;
+
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission&quot;&gt;Emission&lt;/a&gt; is Artsy&#39;s React Native component library. It contains its own native app in the &lt;code&gt;/Example&lt;/code&gt; folder, which uses &lt;a href=&quot;https://artsy.github.io/blog/2015/01/21/cocoapods-keys-and-CI/&quot;&gt;cocoapods-keys&lt;/a&gt; to store secrets while still letting us code in the open. In order to expose these keys to our React Native components, however, we must do a fair bit of setup. Here&#39;s a straightforward how-to that also makes a quick tour through the iOS ecosystem for web developers looking at the React Native JavaScript runtime today.&lt;/p&gt;
+
+&lt;p&gt;Links to examples below come from &lt;a href=&quot;https://github.com/artsy/emission/pull/1086/commits/4a2a3e9260e97d791536cf38376a06b0ad0946a8&quot;&gt;this commit&lt;/a&gt; which adds a key for the Stripe API to Emission. When we are finished, a client app (&lt;code&gt;/Example&lt;/code&gt;, &lt;a href=&quot;https://github.com/artsy/eigen&quot;&gt;Eigen&lt;/a&gt;, etc.) will be able to initialize Emission with this secret, which will in turn make it available to React Native components.&lt;/p&gt;
+
+&lt;a name=&quot;Steps&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Steps&lt;/h2&gt;
+
+&lt;a name=&quot;L1..Add.the.key.to.the.app.s.Podfile.&quot;&gt;&lt;/a&gt;
+&lt;h4&gt;1. Add the key to the app&#39;s Podfile.&lt;/h4&gt;
+
+&lt;p&gt;This is the extent of &lt;code&gt;cocoapods-keys&lt;/code&gt; official &lt;a href=&quot;https://github.com/orta/cocoapods-keys#usage&quot;&gt;setup&lt;/a&gt;, and after this you &lt;strong&gt;could&lt;/strong&gt; set the key via &lt;code&gt;pod keys set &amp;lt;NAME&amp;gt;&lt;/code&gt; or &lt;code&gt;pod install&lt;/code&gt;... but we have more to do.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Example/Podfile#L63&quot;&gt;/Example/Podfile&lt;/a&gt;:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;figcaption&gt;&lt;span&gt;&lt;/span&gt;&lt;/figcaption&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;diff&#39;&gt;&lt;span class=&#39;line&#39;&gt;plugin &amp;#39;cocoapods-keys&amp;#39;, {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  :target =&amp;gt; &amp;#39;Emission&amp;#39;,
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  :keys =&amp;gt; [
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    &amp;#39;ArtsyAPIClientSecret&amp;#39;,
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    &amp;#39;ArtsyAPIClientKey&amp;#39;,
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+    &amp;#39;StripePublishableKey&amp;#39;,&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  ]
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;hr /&gt;
+
+&lt;a name=&quot;L2..Configure.the.library.to.consume.our.new.key&quot;&gt;&lt;/a&gt;
+&lt;h4&gt;2. Configure the library to consume our new key&lt;/h4&gt;
+
+&lt;p&gt;We&#39;ll need to update the &lt;code&gt;initWithUserId...&lt;/code&gt; function — one &lt;strong&gt;fun&lt;/strong&gt; part of adjusting to Objective-C is that rather than named functions, we just refer to them by their entire signatures — to expose the new key as a property and add it to &lt;code&gt;constantsToExport&lt;/code&gt; (&lt;a href=&quot;https://facebook.github.io/react-native/docs/native-modules-ios.html#exporting-constants&quot;&gt;docs&lt;/a&gt;).&lt;/p&gt;
+
+&lt;p&gt;Note that this is happening in our &lt;em&gt;Emission Pod&lt;/em&gt;; The pod now expects that key to be available in our &lt;em&gt;consuming&lt;/em&gt; Example app as defined above.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Pod/Classes/Core/AREmission.h#L17-L34&quot;&gt;/Pod/Classes/Core/AREmission.h&lt;/a&gt;:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;figcaption&gt;&lt;span&gt;&lt;/span&gt;&lt;/figcaption&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;9&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;10&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;11&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;12&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;13&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;14&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;15&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;diff&#39;&gt;&lt;span class=&#39;line&#39;&gt;// ENV Variables
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; #import &amp;lt;React/RCTBridgeModule.h&amp;gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; @interface AREmissionConfiguration : NSObject &amp;lt;RCTBridgeModule&amp;gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+ @property (nonatomic, copy, readonly, nullable) NSString *stripePublishableKey;&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; - (instancetype)initWithUserID:(NSString *)userID
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;           authenticationToken:(NSString *)token
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                     sentryDSN:(nullable NSString *)sentryDSN
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+         stripePublishableKey:(NSString *)stripePublishableKey&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;              googleMapsAPIKey:(nullable NSString *)googleAPIKey
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                    gravityURL:(NSString *)gravity
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                metaphysicsURL:(NSString *)metaphysics
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                     userAgent:(NSString *)userAgent;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;code&gt;AREmission&lt;/code&gt;&#39;s implementation (.m) needs to be configured to take this new key- It will be exported to our React Native components as &lt;code&gt;Emission&lt;/code&gt;. We make our initializer match the signature defined in the header (.h) file, and add an instance &lt;code&gt;_stripePublishableKey&lt;/code&gt; to match the &lt;code&gt;@property&lt;/code&gt; declaration.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Pod/Classes/Core/AREmission.m#L24-L60&quot;&gt;/Pod/Classes/Core/AREmission.m&lt;/a&gt;:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;figcaption&gt;&lt;span&gt;&lt;/span&gt;&lt;/figcaption&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;9&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;10&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;11&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;12&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;13&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;14&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;15&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;16&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;17&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;18&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;19&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;20&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;21&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;22&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;23&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;24&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;25&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;26&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;27&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;diff&#39;&gt;&lt;span class=&#39;line&#39;&gt; @implementation AREmissionConfiguration
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; RCT_EXPORT_MODULE(Emission);
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; # ...
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; - (NSDictionary *)constantsToExport
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;   return @{
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+    @&amp;quot;stripePublishableKey&amp;quot;: self.stripePublishableKey ?: @&amp;quot;&amp;quot;,&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     # ...lots more
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;   };
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; - (instancetype)initWithUserID:(NSString *)userID
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;            authenticationToken:(NSString *)token
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                      sentryDSN:(NSString *)sentryDSN
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+          stripePublishableKey:(NSString *)stripePublishableKey&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;               googleMapsAPIKey:(NSString *)googleAPIKey
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                     gravityURL:(NSString *)gravity
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                 metaphysicsURL:(NSString *)metaphysics
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;                      userAgent:(nonnull NSString *)userAgent
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     self = [super init];
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     _userID = [userID copy];
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+    _stripePublishableKey = [stripePublishableKey copy];&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     # ... More copies...
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     return self;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt; }
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;em&gt;Why is &lt;code&gt;copy&lt;/code&gt; needed at all? See &lt;a href=&quot;https://stackoverflow.com/questions/387959/nsstring-property-copy-or-retain/388002#388002&quot;&gt;here&lt;/a&gt;.&lt;/em&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;a name=&quot;L3..Configure.the.example.app.to.expose.the.new.key.to.our.library&quot;&gt;&lt;/a&gt;
+&lt;h4&gt;3. Configure the example app to expose the new key to our library&lt;/h4&gt;
+
+&lt;p&gt;After making sure we have imported the keys from &lt;code&gt;cocoapods-keys&lt;/code&gt; we update Emission&#39;s setup to use the new initializer signature we defined above.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Example/Emission/AppDelegate.m#L109&quot;&gt;Example/Emission/AppDelegate.m&lt;/a&gt;:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;figcaption&gt;&lt;span&gt;&lt;/span&gt;&lt;/figcaption&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;9&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;10&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;11&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;12&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;13&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;14&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;15&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;diff&#39;&gt;&lt;span class=&#39;line&#39;&gt;#import &amp;lt;Keys/EmissionKeys.h&amp;gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  - (void)setupEmissionWithUserID:(NSString *)userID accessToken:(NSString *)accessToken keychainService:(NSString *)service;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    # ...
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;     AREmissionConfiguration *config = [[AREmissionConfiguration alloc]
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      initWithUserID:userID
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      authenticationToken:accessToken
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      sentryDSN:nil
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;gi&quot;&gt;+     stripePublishableKey:keys.stripePublishableKey&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      googleMapsAPIKey:nil
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      gravityURL:setup.gravityURL
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      metaphysicsURL:setup.metaphysicsURL
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      userAgent:@&amp;quot;Emission Example&amp;quot;];
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    # ...
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;hr /&gt;
+
+&lt;a name=&quot;L4..Use.that.configured.key.in.a.React.Native.component.&quot;&gt;&lt;/a&gt;
+&lt;h4&gt;4. Use that configured key in a React Native component.&lt;/h4&gt;
+
+&lt;p&gt;&lt;code&gt;Emission&lt;/code&gt; is now exposed along with its configured keys via React Native&#39;s &lt;a href=&quot;https://facebook.github.io/react-native/docs/native-modules-ios.html&quot;&gt;NativeModules&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/src/lib/components/bidding/screens/confirmfirsttimebid.tsx#l31&quot;&gt;src/lib/Components/Bidding/Screens/ConfirmFirstTimeBid.tsx&lt;/a&gt;:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;figcaption&gt;&lt;span&gt;&lt;/span&gt;&lt;/figcaption&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;js&#39;&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;kr&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;NativeModules&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&amp;quot;react-native&amp;quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;kr&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Emission&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;NativeModules&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;Emission&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{};&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;nx&quot;&gt;stripe&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;setOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;({&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  &lt;span class=&quot;nx&quot;&gt;publishableKey&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nx&quot;&gt;Emission&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nx&quot;&gt;stripePublishableKey&lt;/span&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;&lt;span class=&quot;p&quot;&gt;});&lt;/span&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+
+
+&lt;!--
+Cᴏɴᴄʟᴜsɪᴏɴ
+--&gt;
+
+
+&lt;p&gt;That&#39;s it! Compared to a familiar dotenv file, &lt;strong&gt;it&lt;/strong&gt; certainly means a bit more ceremony here, but we are working through React Native code, its containing Pod &lt;em&gt;and&lt;/em&gt; a consuming app. The process is more complicated, but it&#39;s also a nice overview of some fundamentals of Objective-C, iOS development and bridging the gap between react and mobile native code.&lt;/p&gt;
+</description>
+        <pubDate>Fri, 15 Jun 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/06/15/cocoapods-keys-react-native/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/06/15/cocoapods-keys-react-native/</guid>
+        
+        
+        <category>emission</category>
+        
+        <category>ios</category>
+        
+        <category>javascript</category>
+        
+        <category>react</category>
+        
+        <category>reactnative</category>
+        
+        <category>technology</category>
+        
+      </item>
+    
+      <item>
+        <title>JavaScriptures 5 - Tooling</title>
+        <description>&lt;p&gt;The sixth, and last in our JavaScriptures series on the Artsy &lt;a href=&quot;http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/&quot;&gt;omakase&lt;/a&gt;. This talk covers a lot of the
+tooling basics for setting up a web JavaScript project. In this talk &lt;a href=&quot;https://github.com/damassi&quot;&gt;Chris&lt;/a&gt; covers the how to use Webpack
+and Babel in a fresh application.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+
+
+&lt;center&gt;
+&lt;iframe width=&#39;100%&#39; height=&#39;400&#39; src=&#39;https://www.youtube.com/embed/NhYot0NC6q8&#39; frameborder=&#39;0&#39; allowfullscreen&gt;&lt;/iframe&gt;
+&lt;/center&gt;
+
+
+
+
+&lt;p style=&#39;text-align:right;&#39;&gt;&lt;a href=&quot;https://speakerdeck.com/artsyopensource/javascriptures-5-babel-and-webpack?slide=1&quot;&gt;
+Slides on Speakerdeck
+&lt;/a&gt;&lt;/p&gt;
+
+
+
+</description>
+        <pubDate>Fri, 15 Jun 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/06/15/JavaScriptures-5-Babel-Webpack/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/06/15/JavaScriptures-5-Babel-Webpack/</guid>
+        
+        
+        <category>event</category>
+        
+        <category>react</category>
+        
+        <category>relay</category>
+        
+      </item>
+    
+      <item>
+        <title>JavaScriptures 4.2 - Local State</title>
+        <description>&lt;p&gt;The fifth in our JavaScriptures series on the Artsy &lt;a href=&quot;http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/&quot;&gt;omakase&lt;/a&gt;. This talk is the second part on state
+management inside JavaScript projects. In this talk &lt;a href=&quot;https://github.com/damassi&quot;&gt;Chris&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/seevexes&quot;&gt;Eve&lt;/a&gt; cover the basics of how we handle
+interacting with local state in our different applications.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/damassi&quot;&gt;Chris&lt;/a&gt; and &lt;a href=&quot;https://twitter.com/seevexes&quot;&gt;Eve&lt;/a&gt; &lt;a href=&quot;https://github.com/artsy/javascriptures/tree/master/5_intro-to-state&quot;&gt;create three demos&lt;/a&gt; which cover using Reacts &lt;code&gt;setState&lt;/code&gt;, &lt;a href=&quot;https://github.com/artsy/javascriptures/blob/master/5_intro-to-state/2-redux&quot;&gt;Redux&lt;/a&gt; and
+&lt;a href=&quot;https://github.com/jamiebuilds/unstated&quot;&gt;Unstated&lt;/a&gt; to make complex applications.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+
+
+&lt;center&gt;
+&lt;iframe width=&#39;100%&#39; height=&#39;400&#39; src=&#39;https://www.youtube.com/embed/uLeZnpvVpxA&#39; frameborder=&#39;0&#39; allowfullscreen&gt;&lt;/iframe&gt;
+&lt;/center&gt;
+
+
+
+
+&lt;p style=&#39;text-align:right;&#39;&gt;&lt;a href=&quot;https://speakerdeck.com/artsyopensource/javascriptures-4-dot-2-local-state?slide=1&quot;&gt;
+Slides on Speakerdeck
+&lt;/a&gt;&lt;/p&gt;
+
+
+
+</description>
+        <pubDate>Fri, 15 Jun 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/06/15/JavaScriptures-4.2-Local-State/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/06/15/JavaScriptures-4.2-Local-State/</guid>
+        
+        
+        <category>babel</category>
+        
+        <category>event</category>
+        
+        <category>react</category>
+        
+        <category>webpack</category>
+        
+      </item>
+    
+      <item>
+        <title>JavaScriptures 4.1 - Relay</title>
+        <description>&lt;p&gt;The fourth in our JavaScriptures series on the Artsy &lt;a href=&quot;http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/&quot;&gt;omakase&lt;/a&gt;. This talk is the first part on state
+management inside JavaScript projects. In this talk &lt;a href=&quot;https://twitter.com/alloy&quot;&gt;Alloy&lt;/a&gt; covers the basics of how we handle interacting with
+external state with our GraphQL API &lt;a href=&quot;https://github.com/artsy/metaphysics/&quot;&gt;metaphysics&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://twitter.com/alloy&quot;&gt;Alloy&lt;/a&gt; takes our &lt;a href=&quot;https://github.com/artsy/javascriptures/tree/master/4_intro-to-relay&quot;&gt;existing demo application&lt;/a&gt; from the previous JavaScriptures and converts it to use Relay
+with all of the Artsy tooling.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+
+
+&lt;center&gt;
+&lt;iframe width=&#39;100%&#39; height=&#39;400&#39; src=&#39;https://www.youtube.com/embed/-Ax46yDG7oc&#39; frameborder=&#39;0&#39; allowfullscreen&gt;&lt;/iframe&gt;
+&lt;/center&gt;
+
+
+
+
+&lt;p style=&#39;text-align:right;&#39;&gt;&lt;a href=&quot;https://speakerdeck.com/artsyopensource/javascriptures-4-dot-1-relay?&quot;&gt;
+Slides on Speakerdeck
+&lt;/a&gt;&lt;/p&gt;
+
+
+
+</description>
+        <pubDate>Wed, 13 Jun 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/06/13/JavaScriptures-4.1-Relay/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/06/13/JavaScriptures-4.1-Relay/</guid>
+        
+        
+        <category>event</category>
+        
+        <category>react</category>
+        
+        <category>relay</category>
+        
+      </item>
+    
+      <item>
+        <title>Announcing: Artsy x React Native</title>
+        <description>&lt;p&gt;React Native has a lot of buzz around it. It is some serious and cool tech, yet can feel like a big departure from
+your native iOS codebase. At Artsy, we like it. It has been the right choice for us. We&#39;ve &lt;a href=&quot;http://artsy.github.io/search/?q=react+native&quot;&gt;documented&lt;/a&gt; &lt;a href=&quot;http://artsy.github.io/series/react-native-at-artsy/&quot;&gt;our&lt;/a&gt;
+&lt;a href=&quot;http://artsy.github.io/blog/2016/08/15/React-Native-at-Artsy/&quot;&gt;journey&lt;/a&gt; and &lt;a href=&quot;http://artsy.github.io/blog/2018/03/17/two-years-of-react-native/&quot;&gt;reasoning&lt;/a&gt; quite extensively, but naturally, developers around the world are still wondering
+whether the trade-offs make sense to &lt;em&gt;their&lt;/em&gt; team, and &lt;em&gt;their&lt;/em&gt; situation.&lt;/p&gt;
+
+&lt;p&gt;Enter &lt;a href=&quot;https://www.artsy.net/x-react-native&quot;&gt;Artsy x React-Native&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Who better to partner with than Facebook? We&#39;re bringing a day full of hands-on informative insight and practical
+play. With the focus on what building world class applications with RN can be like.&lt;/p&gt;
+
+&lt;p&gt;We&#39;ll demo, through talks and workshops, how to add React Native bit by bit to an existing codebase, set your
+tooling up for success, and create solid animations.&lt;/p&gt;
+
+&lt;p&gt;We want &lt;a href=&quot;https://www.artsy.net/x-react-native&quot;&gt;Artsy x React-Native&lt;/a&gt; to be about getting you up to speed with the framework, so you can make your
+own decisions going forward.&lt;/p&gt;
+</description>
+        <pubDate>Sun, 03 Jun 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/06/03/Announcing-Artsy-x-React-Native/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/06/03/Announcing-Artsy-x-React-Native/</guid>
+        
+        
+        <category>event</category>
+        
+        <category>javascript</category>
+        
+        <category>typescript</category>
+        
+      </item>
+    
+      <item>
+        <title>My First Week On Call</title>
+        <description>&lt;p&gt;As I write this, I have completed my first ever engineering on-call rotation at Artsy, so naturally I had to write a blog post about some of the things I learned.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+&lt;p&gt;A year ago, I would have been terrified to be one of two engineers responsible for handling everything from re-sending automated emails to fixing total site outages, but &lt;a href=&quot;https://ashfurrow.com/blog/perspective-of-the-polyglot/&quot;&gt;I have grown a lot&lt;/a&gt; so being on-call was only &lt;em&gt;regular&lt;/em&gt;-level intimidating. And indeed, with supportive documentation and a good partner, I didn&#39;t experience any situations where I felt truly lost about what to do next.&lt;/p&gt;
+
+&lt;p&gt;But I did learn a few things. So let&#39;s discuss a few things that weren&#39;t immediately obvious to me.&lt;/p&gt;
+
+&lt;a name=&quot;Ignore.My.Instinct.to.Fix.Things.Right.Away&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Ignore My Instinct to Fix Things Right Away&lt;/h2&gt;
+
+&lt;p&gt;This sounds really counterintuitive, right? I mean, a server is down, let&#39;s reboot it so it&#39;s up again! It&#39;s got a little red X next to it in AWS, let&#39;s make it a green checkmark again! I want that checkmark!&lt;/p&gt;
+
+&lt;p&gt;But that&#39;s not always the best course of action. Sometimes, fixing something right away would deprive us of the opportunity to figure out &lt;em&gt;why&lt;/em&gt; it broke in the first place. For example: we had Rails servers running out of disk space, and rebooting those servers would have refreshed their drives and fixed the problem, but one of our platform engineers asked me to wait so they could ssh in and examine the contents of the filesystems. In the mean time, the load balancer had already routed traffic around the servers, so there was no need to rush to fix anything.&lt;/p&gt;
+
+&lt;p&gt;My instinct to fix things right away was at odds with the team&#39;s desire to understand why something broke.&lt;/p&gt;
+
+&lt;a name=&quot;What.is.an.Incident..Even.&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;What is an Incident, Even?&lt;/h2&gt;
+
+&lt;p&gt;One thing became really clear to be, really quickly: people have many different, valid perspectives on what an &quot;incident&quot; is. Our support documentation goes into detail about what our responsibilities as on-call engineers are responsible for, and what should be routed through product teams to be prioritized, but my support partner and I still hit cases where we weren&#39;t quite sure if we should take action.&lt;/p&gt;
+
+&lt;p&gt;Sometimes, issues of critical importance were brought to our #incidents Slack channel, but weren&#39;t &lt;em&gt;really&lt;/em&gt; incidents, from an Engineering perspective. We erred on the side of helping our colleagues, but it&#39;s difficult. I want to help people! But I also have responsibilities. Balancing the two is a skill every engineer has to develop, and being on-call highlighted the importance of balance in a new way for me.&lt;/p&gt;
+
+&lt;p&gt;My first ever jobs were retail, where I helped rural Canadians learn to use their first ever cell phones, and IT helpdesks; both taught me how to handle support requests in a way that makes the other person feel like things are going to be okay. I had to reapply those skills when on-call because sometimes what people were bringing to my attention fell outside the scope of an &quot;incident&quot;. Consider the response:&lt;/p&gt;
+
+&lt;blockquote&gt;&lt;p&gt;What you&#39;ve reported isn&#39;t an incident, talk to your PM.&lt;/p&gt;&lt;/blockquote&gt;
+
+&lt;p&gt;... and contrast it with:&lt;/p&gt;
+
+&lt;blockquote&gt;&lt;p&gt;This falls outside the scope of immediate support, so I&#39;ve opened a ticket for you. You can talk to the team PM about prioritization.&lt;/p&gt;&lt;/blockquote&gt;
+
+&lt;p&gt;This kind of reply also aligns with Artsy&#39;s &lt;a href=&quot;https://github.com/artsy/meta/blob/master/meta/what_is_artsy.md#artsy-values&quot;&gt;values&lt;/a&gt; of &lt;strong&gt;Positive Energy&lt;/strong&gt; and &lt;strong&gt;People are Paramount&lt;/strong&gt;. Everyone working at Artsy is here to make art a bigger part of culture, and that shared understanding helped.&lt;/p&gt;
+
+&lt;a name=&quot;We.Need.to.Improve.our.Automated.Alerts&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;We Need to Improve our Automated Alerts&lt;/h2&gt;
+
+&lt;p&gt;For a few months now, Artsy Engineering has been discussing how to consolidate our automated alerts. I somehow got it in my head that anything in our #alerts channel needed immediate engineer attention, when in fact, our #alerts channel is often noisy. By the final day of my rotation, I learned that not everything needed immediate attention.&lt;/p&gt;
+
+&lt;p&gt;That&#39;s a bit of a problem. There are alerts that need immediate intervention (&quot;the API servers are all down&quot;) and there are alerts that need no intervention (&quot;this server is responding slowly, oh wait, it&#39;s back to normal, never mind&quot;), and then there are the tricky ones: the ones that need &lt;em&gt;eventual&lt;/em&gt; intervention (&quot;gosh, our image processing API out of disk space for the third time in a month, we need to look into that&quot;). Figuring out how to sort mid-level, important-but-not-urgent automated alerts from critical ones will be a critical part of our long-term support process.&lt;/p&gt;
+</description>
+        <pubDate>Wed, 30 May 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/05/30/my-first-week-on-call/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/05/30/my-first-week-on-call/</guid>
+        
+        
+        <category>best practices</category>
+        
+        <category>culture</category>
+        
+        <category>people</category>
+        
+        <category>team</category>
+        
+      </item>
+    
+      <item>
+        <title>How we designed our Engineering On-Call Process</title>
+        <description>&lt;p&gt;Over the past few months, we&#39;ve been working on formalizing an on-call support process for our engineering team. This post details our current state and how we decided what system would work best for us.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+&lt;a name=&quot;Motivation:.Why.formalize.support.&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;Motivation: Why formalize support?&lt;/h1&gt;
+
+&lt;p&gt;At Artsy we care about building robust, maintainable, and scalable systems. We like to have good test coverage and address regressions when they happen so we can prevent them in the future. For years we supported our systems informally, relying on engineers to notice and address issues as they came up. People tended to monitor apps that they had created (or recently worked on) closely, and that was generally enough to keep our systems running smoothly.&lt;/p&gt;
+
+&lt;p&gt;We’ve also seen a couple of team configurations, each with its own effect. When I started at Artsy in 2014, engineers were organized into “practice” teams, meaning the work we did corresponded roughly to the systems we maintained. After that, we organized by “business unit”, meaning there were more teams sharing systems, but non-engineers at Artsy had a clear group of people who they could ask for help. For client-facing systems it was easier to route questions to the right people, but ownership of shared internal systems was less clear.&lt;/p&gt;
+
+&lt;p&gt;Our ad-hoc support practice was working, but also had some drawbacks:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Answering support issues took a lot of time/focus away from engineers working on sprint tasks, and this responsibility was not uniformly distributed.&lt;/li&gt;
+&lt;li&gt;Bugs and maintenance items weren’t always prioritized or worked on consistently.&lt;/li&gt;
+&lt;li&gt;Knowledge about how systems work or how decisions were made was siloed in individuals or small teams.&lt;/li&gt;
+&lt;li&gt;Issues related to features that were not “owned” by an obvious product area often went ignored.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;We wanted to create a system that would ensure stable, constantly improving services in spite of all of Artsy’s growing and changing.&lt;/p&gt;
+
+&lt;a name=&quot;Goals.Research&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;Goals/Research&lt;/h1&gt;
+
+&lt;p&gt;We first identified the goals of our ideal support process:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;People who report issues have full confidence that their issue will be resolved, or understand why not.&lt;/li&gt;
+&lt;li&gt;Engineers feel empowered and able to fix issues and understand when it is their responsibility to do so.&lt;/li&gt;
+&lt;li&gt;We evolve our systems to require less support and spread knowledge among engineers so there are fewer bottlenecks.&lt;/li&gt;
+&lt;li&gt;All consumers of Artsy (employees, users, and partners) feel confident that our systems are stable and we will address any issues that arise.&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;p&gt;With those goals in mind, we researched both externally (looking at how other companies tackled this common problem) and internally (talking to members of the engineering team and various business/product stakeholders).&lt;/p&gt;
+
+&lt;p&gt;Out of this effort, we learned that people had some shared concerns:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;The same few people tended to address most of the support questions, meaning the responsibility was imbalanced.&lt;/li&gt;
+&lt;li&gt;People felt wary about the idea of having to answer to support requests from areas they were unfamiliar with.&lt;/li&gt;
+&lt;li&gt;People wondered how support duty might fit into their product work.&lt;/li&gt;
+&lt;li&gt;People desired a more consistent and accountable process for triaging and prioritizing bug fixes.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;We then identified a few potential solutions:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;We could hire or dedicate people to handle support as a full-time job.&lt;/li&gt;
+&lt;li&gt;We could have a rotating set of engineers who are exempt from product-related work and tasked with both answering immediate support requests and fixing small bugs or improving the state of our infrastructure/monitoring.&lt;/li&gt;
+&lt;li&gt;We could have engineers on an on-call rotation who are responsible for addressing immediate issues but remain engaged with their product team.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;a name=&quot;Our.Plan&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;Our Plan&lt;/h1&gt;
+
+&lt;p&gt;We worked with the product management team to identify an escalation path for different types of issues. At the least-urgent level were basic feature requests, and at the most-urgent were critical bugs or “incidents”. We decided to focus on building out a process whereby certain engineers could be available to address urgent incidents, and other, less-urgent bugs or issues could be triaged and added to teams’ workloads as part of a normal sprint.&lt;/p&gt;
+
+&lt;p&gt;Out of the solutions above, we chose the on-call approach where engineers remain part of product sprints but prioritize responding to critical issues. We felt it was important for on-call engineers to stay involved with their team’s ongoing work and also to encourage everyone to share responsibility for our system health.&lt;/p&gt;
+
+&lt;p&gt;In order to make the idea of an “on-call” shift concrete and get feedback from the entire engineering team, we put a document up for review that describes the “support plan” in detail. Here’s an abbreviated version of that document:&lt;/p&gt;
+
+&lt;a name=&quot;Process.Overview&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Process Overview&lt;/h2&gt;
+
+&lt;p&gt;Two engineers are on-call each week. The rotating schedule is published in a Google calendar at least a month in advance and engineers are encouraged to trade shifts as necessary.&lt;/p&gt;
+
+&lt;p&gt;During work hours, on-call engineers are responsible for responding to issues in our #incidents slack channel. Outside of work hours, they are only responsible for downtime issues.&lt;/p&gt;
+
+&lt;a name=&quot;On-Call.Responsibilities&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;On-Call Responsibilities&lt;/h2&gt;
+
+&lt;p&gt;While on-call, you are accountable for investigating and fixing timely issues, escalating to additional point-people and/or routing to team-specific backlogs where appropriate.&lt;/p&gt;
+
+&lt;p&gt;Your top priority during an on-call period is to address critical issues. Use your judgment about joining ongoing sprint and team activities.&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Be available to answer requests and respond to immediate issues.&lt;/li&gt;
+&lt;li&gt;Investigate and address critical issues using documentation and pulling in point-people where necessary.&lt;/li&gt;
+&lt;li&gt;Track incidents’ status (we track incidents on a Trello board, and if an issue requires attention by a product team we’ll add it to our team’s Jira board).&lt;/li&gt;
+&lt;li&gt;Improve the support process and resources for the next rotation (this includes our playbooks for fixing issues and docs about the support process).&lt;/li&gt;
+&lt;/ol&gt;
+
+
+&lt;a name=&quot;Handing.Off&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Handing Off&lt;/h2&gt;
+
+&lt;p&gt;We do our handoff after our team-wide standup every Monday. The previous on-call members and the current ones make sure to resolve any outstanding items so the week begins fresh.&lt;/p&gt;
+
+&lt;a name=&quot;Current.State&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;Current State&lt;/h1&gt;
+
+&lt;p&gt;We&#39;re currently in the middle of our first round of on-call shifts and have already had to deal with every edge case/situation we could imagine. The question of &quot;what qualifies as an incident&quot; keeps coming up and we&#39;ve been steadily refining the process as we go.&lt;/p&gt;
+
+&lt;p&gt;As a result of implementing this process, we’ve seen a few wins:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Since we also archived slack channels that tended to “collect” issues in the past, we’ve successfully consolidated issues into the #incidents channel. Recently, we had a major issue in a shared service that resulted in multiple, disparate effects across our systems. Seeing these all in one place helped us diagnose the underlying problem and provide a consistent message to stakeholders.&lt;/li&gt;
+&lt;li&gt;Engineers get to learn about parts of the Artsy ecosystem that they had been previously unfamiliar with. This isn’t trivial and often requires point-people for those systems to help out, but as a result we’ve been able to spread more knowledge and contribute to a shared documentation base.&lt;/li&gt;
+&lt;li&gt;In addition to a single intake for critical issues, we have a single intake for minor requests and bugs that get triaged and addressed by our product teams. This means it’s more obvious when the same issue comes up, and since this is part of our same ticketing system we use for new products and features, we know the status at all times.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;We&#39;ve also seen some challenges and identified things to improve on:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;It’s not easy to tell someone that the thing they reported in #incidents isn’t “urgent” or worth looking into.&lt;/li&gt;
+&lt;li&gt;We don’t use an external service for scheduling or routing incidents, which means we rely on slack notifications for waking people up at night if there’s an issue. At some point, we may need to make our escalation path a little more robust.&lt;/li&gt;
+&lt;li&gt;Given that a potential post in #incidents could wake someone up, we have to be careful about which alerts get piped directly to that channel. Instead of putting every alert there and tuning where necessary, we’ve been trying to elevate alerts opportunistically. The result is we have few alerts going directly to #incidents right now, and most issues are reported by humans.&lt;/li&gt;
+&lt;li&gt;Depending on the severity of the on-call week, it can be exhausting. With our open vacation policy and general flexibility with time, people are expected to watch their sanity and take time off as necessary, but in practice people may just end up working extra during their rotation. It would be good to formalize this.&lt;/li&gt;
+&lt;li&gt;Scheduling is difficult and still very manual. We have many different factors that affect when someone should be on-call and with whom (such as which team they are on, when they were last on-call, etc.), and it may be worth attempting to automate this in the future.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;Our on-call process was born out of research and conversations, but it’s the first time we’ve formalized anything related to support, so it begs to be iterated on. We have a retrospective scheduled for the end of this round and will hopefully be able to adapt based on our changing needs.&lt;/p&gt;
+</description>
+        <pubDate>Fri, 25 May 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/05/25/support-process/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/05/25/support-process/</guid>
+        
+        
+        <category>on-call</category>
+        
+        <category>support</category>
+        
+      </item>
+    
+      <item>
+        <title>Is GraphQL The Future?</title>
+        <description>&lt;p&gt;I have seen the future, and it looks a lot like GraphQL. Mark my words: in 5
+years, newly minted full-stack app developers won’t be debating &lt;em&gt;RESTfulness&lt;/em&gt;
+anymore, because REST API design will be obsolete. By the end of this post, I
+hope you&#39;ll see what I see in the promise of GraphQL as a new approach to
+client-server interaction.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+&lt;p&gt;GraphQL is taking the full-stack world by storm. In case you’re not familiar,
+GraphQL is a language-independent specification for client-server communication.
+It lets you model the resources and processes provided by a server as a
+&lt;a href=&quot;https://en.wikipedia.org/wiki/Domain-specific_language&quot;&gt;domain-specific language (DSL)&lt;/a&gt;.
+Clients can use it to send scripts written in your DSL to the server to process
+and respond to as a batch.&lt;/p&gt;
+
+&lt;p&gt;That’s...different from how GraphQL’s own page describes it. GraphQL is better
+known as a query language designed for clients to fetch exactly the data they
+need. While this is sort of true, I would argue that GraphQL actually fails this
+test in reality. It’s neither a query language, nor particularly graph-oriented.
+I argue that it&#39;s &lt;em&gt;not&lt;/em&gt; a query language because it comes with no native
+concepts of operators and expressions that build up to queries. &lt;em&gt;You&lt;/em&gt; build
+whatever facilities for specifying and fulfilling queries on your own. Likewise,
+if your data is a graph, it’s on you to expose that structure. But your requests
+are, if anything, trees.&lt;/p&gt;
+
+&lt;p&gt;I’m not trying to be pedantic. I believe GraphQL succeeds at something subtler
+and more important than literally being a graph query language. I’m writing this
+piece because I kept running into difficulties approaching GraphQL from the
+standpoints of REST, graph theory, or typical query languages. As I read blog
+posts, StackOverflow Q&amp;amp;As, issues on the GraphQL repo and the GraphQL spec
+itself, I developed a much more nuanced understanding, which I outline below.&lt;/p&gt;
+
+&lt;p&gt;For brevity, the following assumes a intermediate familiarity with GraphQL,
+including its type system, syntax, and server-side implementation. If you don’t
+have this level of familiarity, I recommend going through any tutorial that
+requires you to set up a GraphQL server, not just play with the query language
+(which is how I ended up with a lot of misconceptions).
+&lt;a href=&quot;https://graphql.org/graphql-js/&quot;&gt;The docs for the official JavaScript server library&lt;/a&gt;
+are a good option. I’m going to start with the basics, but only so I can put my
+own spin on those concepts, not to really illustrate them with examples.&lt;/p&gt;
+
+&lt;a name=&quot;A.tree.of.fetches&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;A tree of fetches&lt;/h1&gt;
+
+&lt;p&gt;Most applications are designed in the form of discrete pages, which are seeded
+with some tiny chunk of data—say, a key or slug for some domain object—and then
+perform a cascade of contingent fetches to get the data needed to populate the
+templates rendered to a user. This is the basis of designing applications driven
+by URL-based routing and it has been a mainstay of the MVC approach to web
+application architecture for the past decade.&lt;/p&gt;
+
+&lt;blockquote&gt;&lt;p&gt;&lt;strong&gt;Example:&lt;/strong&gt; At Artsy, the seed of data for rendering an artwork page could be
+the slug identifying some artwork. From this slug, we need a whole bunch more
+data: the metadata of the artwork, information about the artist(s), sales data
+if it’s available for purchase, information about the Artsy partner that owns
+it, and so on. In classic REST, this data is aggregated by a cascade of dozens
+of HTTP fetches to our backend API.&lt;/p&gt;&lt;/blockquote&gt;
+
+&lt;p&gt;I wasn’t in the room when GraphQL was invented, but it seems to me that the team
+that built it made a particularly crucial insight:&lt;/p&gt;
+
+&lt;blockquote&gt;&lt;p&gt;In most cases, all of this contingent fetching forms a tree, which is more or
+less &lt;em&gt;fixed&lt;/em&gt; for a given page.&lt;/p&gt;&lt;/blockquote&gt;
+
+&lt;p&gt;Data from early responses contain the keys for subsequent requests, but the
+linkages between these requests are usually straightforward. So if it were
+possible to factor all this disparate fetching into one spot and encode it into
+one big “fetching tree” data structure ahead of time, this tree could be sent to
+the the server, and the server could fulfill all of the data requirements in one
+shot. This cuts out a tremendous amount of wasteful chatter between client and
+server. Even in today&#39;s broadband world, bandwidth and latency matter,
+especially for mobile users.&lt;/p&gt;
+
+&lt;a name=&quot;GraphQL.anatomy&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;GraphQL anatomy&lt;/h1&gt;
+
+&lt;blockquote&gt;&lt;p&gt;&lt;strong&gt;Editorial note&lt;/strong&gt; I&#39;m going to use the term &quot;operation&quot; pretty liberally
+here, but I mean it in the conceptual sense, not in the sense of the GraphQL
+spec, where it defines the semantics of an entire GraphQL request.&lt;/p&gt;&lt;/blockquote&gt;
+
+&lt;p&gt;A GraphQL request always starts with at least &lt;em&gt;one root API operation&lt;/em&gt; and some
+finite number of follow-ups. Idiomatically, these follow-ups are queries,
+meaning that they just retrieve data, without changing the server state in
+observable ways. GraphQL models API operations as &lt;strong&gt;fields&lt;/strong&gt;. How a field works
+in GraphQL depends on its &lt;strong&gt;type&lt;/strong&gt;, which falls into one of two basic
+categories:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;Scalar&lt;/strong&gt; types (&lt;code&gt;Int&lt;/code&gt;, &lt;code&gt;Float&lt;/code&gt;, &lt;code&gt;String&lt;/code&gt;, &lt;code&gt;Boolean&lt;/code&gt;, and &lt;code&gt;ID&lt;/code&gt;, as well as
+application-defined &lt;code&gt;enum&lt;/code&gt; and &lt;code&gt;scalar&lt;/code&gt; types) represent the individual pieces
+of &lt;em&gt;data actually sent to the client&lt;/em&gt;. Contrary how I think of the term scalar
+in other contexts, the data can be arbitrarily complex. As far as the GraphQL
+spec is concerned, scalars are just opaque blobs of data with validation and
+serialization rules. As an operation, a scalar field is terminal data fetch,
+with no follow-ups. They are the leaves of the request tree.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;Object&lt;/strong&gt; types (&lt;code&gt;type&lt;/code&gt;, &lt;code&gt;union&lt;/code&gt; and &lt;code&gt;interface&lt;/code&gt;) are collections of fields.
+As an operation, an object-typed field is an intermediate operation that
+serves as the junction point for follow-up operations. But, it doesn’t
+directly return any data. They are the branches of the request tree.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;The entire model for a given API is known as its &lt;strong&gt;schema&lt;/strong&gt;. Every schema has a
+root query type, whose fields serve as the API’s entry points.&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;9&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;10&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;11&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;12&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;13&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;14&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;15&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;&#39;&gt;&lt;span class=&#39;line&#39;&gt;# The root query object type
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;type Query {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  artwork(id: ID): Artwork
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  artist(name: String)
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  # … a whole bunch more root fields
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;type Artwork {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  title: String
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  artist: Artist
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;type Artist {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  name: String
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;A GraphQL query request begins by mentioning at least one of the fields of the
+root query object. This represents an initial query. And if that field is an
+object, &lt;em&gt;its&lt;/em&gt; fields are used to specify any number of follow-up queries.
+Critically, &lt;em&gt;any&lt;/em&gt; field in the request tree can take arguments, allowing a
+request to be parameterized at all depths.&lt;/p&gt;
+
+&lt;p&gt;Take this query, for example:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;&#39;&gt;&lt;span class=&#39;line&#39;&gt;{
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  artwork(id: &quot;andy-warhol-campbells-soup-i-black-bean&quot;) {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    title
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    artist {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      name
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Here, we tell the server to look up an &lt;code&gt;Artwork&lt;/code&gt; by its slug, and tell us the
+title. So far, this is just like REST. But we &lt;em&gt;also&lt;/em&gt; tell it to find us the
+&lt;code&gt;Artist&lt;/code&gt; for us. Importantly, object fields &lt;em&gt;must&lt;/em&gt; be followed up with further
+queries, and scalar fields &lt;em&gt;cannot&lt;/em&gt; be. With that in mind, it’s easy to see that
+&lt;code&gt;artwork&lt;/code&gt; and &lt;code&gt;artist&lt;/code&gt; are object fields, while &lt;code&gt;title&lt;/code&gt; and &lt;code&gt;name&lt;/code&gt; are scalar
+fields.&lt;/p&gt;
+
+&lt;p&gt;Also note that the fact that there’s also an &lt;code&gt;artist&lt;/code&gt; root query field actually
+has nothing to do with its presence under &lt;code&gt;Artwork&lt;/code&gt;. There can be multiple paths
+to reach the same GraphQL type. This is defined explicitly by the schema.&lt;/p&gt;
+
+&lt;p&gt;Usefully, the server’s response to a GraphQL request will directly mirror the
+shape of the request itself. The result of the request above looks like:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;9&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;10&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;&#39;&gt;&lt;span class=&#39;line&#39;&gt;{
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  &quot;data&quot;: {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    &quot;artwork&quot;: {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      &quot;title&quot;: &quot;Campbell&#39;s Soup I: Black Bean&quot;,
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      &quot;artist&quot;: {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;        &quot;name&quot;: &quot;Andy Warhol&quot;
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;}&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;a name=&quot;GraphQL.as.a..meta-.scripting.language&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;GraphQL as a (meta-)scripting language&lt;/h1&gt;
+
+&lt;p&gt;Let’s dig a little deeper into the scripting language interpretation of GraphQL,
+because this is the crux of how I think people should think of GraphQL. If I
+were to guess, I think Facebook…&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;…knows this is true. After all, much of the spec is devoted to
+&lt;a href=&quot;http://facebook.github.io/graphql/October2016/#sec-Execution&quot;&gt;the execution model of GraphQL&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;…might have backed into this design. It’s well known that they think of their
+data as a graph, so I suspect GraphQL might have begun literally as a &quot;graph
+query language&quot;, analogous to &lt;a href=&quot;https://en.wikipedia.org/wiki/SQL&quot;&gt;SQL&lt;/a&gt; for
+relational databases.&lt;/li&gt;
+&lt;li&gt;…thinks that this too difficult to explain, and thus, settled on the query
+language paradigm.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;There are a couple reasons GraphQL might not look like a scripting language to
+you. It didn’t to me, at first! After all, you don&#39;t write your request as list
+of statements. It doesn’t have a concept of variables, other than parameters to
+the whole document. There are no looping constructs or recursion. But I think a
+closer look might shift your perspective.&lt;/p&gt;
+
+&lt;a name=&quot;Control.flow&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Control flow&lt;/h2&gt;
+
+&lt;p&gt;It’s true that a GraphQL request doesn’t follow the same vertical sequence of
+steps model familiar to most programming languages. But sequencing &lt;em&gt;does&lt;/em&gt; exist.
+It’s just represented by calling nested fields of object types, terminating in a
+scalar field. See this request:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;4&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;5&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;6&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;7&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;8&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;&#39;&gt;&lt;span class=&#39;line&#39;&gt;{
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  step1(arg: “something”) {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    step2 {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      step3(arg: &quot;something else”) {
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;        outputScalar
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;      }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;    }
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;  }&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;In a more traditional language, this would look more like:&lt;/p&gt;
+
+&lt;div class=&#39;bogus-wrapper&#39;&gt;&lt;notextile&gt;&lt;figure class=&#39;code&#39;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre class=&quot;line-numbers&quot;&gt;&lt;span class=&#39;line-number&#39;&gt;1&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;2&lt;/span&gt;
+&lt;span class=&#39;line-number&#39;&gt;3&lt;/span&gt;
+&lt;/pre&gt;&lt;/td&gt;&lt;td class=&#39;code&#39;&gt;&lt;pre&gt;&lt;code class=&#39;&#39;&gt;&lt;span class=&#39;line&#39;&gt;step1(“something”)
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;step2()
+&lt;/span&gt;&lt;span class=&#39;line&#39;&gt;return step3(“something else”)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/div&gt;&lt;/figure&gt;&lt;/notextile&gt;&lt;/div&gt;
+
+
+&lt;p&gt;So, sequencing got a bit more verbose, but it &lt;em&gt;is&lt;/em&gt; there.&lt;/p&gt;
+
+&lt;p&gt;Interestingly, GraphQL reserves vertical stacking for something that’s an
+afterthought in most languages: &lt;em&gt;concurrency&lt;/em&gt;. (Granted, there’s no way to
+&lt;a href=&quot;https://en.wikipedia.org/wiki/Synchronization_(computer_science)&quot;&gt;synchronize&lt;/a&gt;
+concurrent paths of execution.) I’m not going to quote
+&lt;a href=&quot;https://facebook.github.io/graphql/October2016/&quot;&gt;the spec&lt;/a&gt;, but search it
+yourself, and you can find the word “parallel” in there several times. This
+design is intentional.&lt;/p&gt;
+
+&lt;a name=&quot;Variables&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Variables&lt;/h2&gt;
+
+&lt;p&gt;One of the core aspects of programming is the ability to pass intermediate data
+around. The most basic way languages accomplish this is with named variables.
+Many languages allow variables to be reassigned; some don&#39;t. GraphQL doesn’t
+have them at all! But that doesn’t mean data can’t be propagated.&lt;/p&gt;
+
+&lt;p&gt;GraphQL supports one kind of propagation, which is the propagation of context
+down the sequence of resolvers. It happens implicitly and invisibly. Exactly
+what data is propagated and what that means is up to you.&lt;/p&gt;
+
+&lt;p&gt;How does this work? Well, if you have worked on GraphQL server code, you know
+that every field has a &lt;strong&gt;resolver&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;For scalar fields, the resolver is responsible for returning the actual data
+that the client sees.&lt;/li&gt;
+&lt;li&gt;For object fields, the resolver instead returns a hidden chunk of data that is
+forwarded along to the resolvers of the fields contained in the object. So
+these resolvers get their parent object’s hidden data, the global context, and
+any arguments, and they can use all of these values to produce their value.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;Often, we just resolve an object field to a domain object. Its scalar fields
+might correspond to properties of that domain object and its object fields might
+correspond to related objects. But the architecture is more powerful than this!
+A deeply nested field can potentially be the result of the resolved values of
+all its parents. It all depends on how you design your resolvers to work
+together.&lt;/p&gt;
+
+&lt;p&gt;This pattern reminds me a bit of when &lt;a href=&quot;https://api.jquery.com/&quot;&gt;jQuery&lt;/a&gt; first
+clicked for me. A lot of details are propagated invisibly within your &lt;code&gt;jquery&lt;/code&gt;
+object as you chain method calls to refine your DOM selections.&lt;/p&gt;
+
+&lt;a name=&quot;Looping.and.recursion&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Looping and recursion&lt;/h2&gt;
+
+&lt;p&gt;GraphQL doesn’t have them, plain and simple. Consequently, the GraphQL DSLs you
+design are not
+&lt;a href=&quot;https://en.wikipedia.org/wiki/Turing_completeness&quot;&gt;Turing-complete&lt;/a&gt;--they will
+always halt in a finite amount of steps. This is really important, because it
+prevents clients from being able to send servers on errands that will never end.
+Of course, the &lt;em&gt;implementations&lt;/em&gt; of field resolvers on the server are free to do
+whatever they want in full Turing-complete glory.&lt;/p&gt;
+
+&lt;a name=&quot;Putting.it.together&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Putting it together&lt;/h2&gt;
+
+&lt;p&gt;My point here is that the execution model of GraphQL is in many ways just like a
+scripting language interpreter. The limitations of its model are strategic, to
+keep the technology focused on client-server interaction. What&#39;s interesting is
+that you as a developer provide nearly all of the definition of what operations
+exist, what they mean, and how they compose. For this reason, I consider GraphQL
+to be a &lt;em&gt;meta-scripting language&lt;/em&gt;, or, in other words, a toolkit for building
+scripting languages.&lt;/p&gt;
+
+&lt;a name=&quot;The.post-REST.world&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;The post-REST world&lt;/h1&gt;
+
+&lt;p&gt;Subtly, this paradigm is a sharp step away from a whole body of knowledge that
+models APIs as resources with fixed verbs, which we know as REST. It’s more
+appropriate to think of GraphQL requests as a script of remote procedure calls
+(RPC). From this perspective, the design of the schema is a lot less about data
+modeling than it is a question of how you want your entire API to be traversed.
+This encourages a verb-oriented mindset.&lt;/p&gt;
+
+&lt;a name=&quot;Verb.orientation&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;Verb orientation&lt;/h2&gt;
+
+&lt;p&gt;Speaking of verbs, you can think of &quot;fetch&quot; as being the default verb in
+GraphQL. You model other verbs as &lt;strong&gt;mutations&lt;/strong&gt;. I delayed learning about
+mutations, because I thought they must be way more complex than queries. Quite
+the opposite! They all sit in one big, flat bucket at the root of your schema,
+as the fields of the root &lt;code&gt;mutation&lt;/code&gt; type. These fields have a type too, and if
+it is an object type, then you can issue effectively any number of follow-up
+queries after your mutation completes. Learning about mutations was when it
+really dawned on me that &lt;em&gt;fields are just function calls&lt;/em&gt;.&lt;/p&gt;
+
+&lt;p&gt;Mutations are a major break with REST. In GraphQL, your mutations are defined
+under root mutation object that is separate from your root query object.
+Therefore, you are immediately asked to accept that they don&#39;t represent verbs
+on a resource, but verbs &lt;em&gt;on your entire service&lt;/em&gt;. This eliminates one of REST’s
+key weak points, namely that complex operations that touch multiple parts of an
+application’s data model are difficult to model as a PUT, DELETE, POST, or PATCH
+on a single resource. In my experience, this &quot;impedance mismatch” between API
+modeling and domain modeling has led to the worst aspects of my HTTP API
+designs.&lt;/p&gt;
+
+&lt;a name=&quot;REST.is.dead..Long.live.REST.&quot;&gt;&lt;/a&gt;
+&lt;h2&gt;REST is dead. Long live REST!&lt;/h2&gt;
+
+&lt;p&gt;It is borderline heresy in some circles to suggest that REST API design is dead.
+But I’m saying it. Don’t get me wrong, REST is still a great paradigm for
+serving static assets. It’s the &lt;em&gt;API&lt;/em&gt; part I have an issue with.&lt;/p&gt;
+
+&lt;p&gt;Ironically, I think there’s a strong argument that a GraphQL request document
+maps very nicely to the concept of a resource:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;It doesn’t change that often, and you could PUT it to store it, perhaps using
+a hash of the request document to form the URL.&lt;/li&gt;
+&lt;li&gt;GraphQL queries map elegantly to GET operations on a stored query request
+document’s URL.&lt;/li&gt;
+&lt;li&gt;GraphQL mutations map decently to POST operations to a stored mutation request
+document’s URL.&lt;/li&gt;
+&lt;li&gt;The arguments of a GraphQL request map elegantly to HTTP query parameters.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;In other words, GraphQL is simply another formalization layer of HTTP-based API
+design. Think of it as being akin to the way JSON representation changed the way
+we think about client-server communication in full-stack apps. It’s not so much
+that REST will cease to exist, but that it will fade to the background, as an
+implementation detail of GraphQL application frameworks.&lt;/p&gt;
+
+&lt;a name=&quot;GraphQL.is.not.your.data.model&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;GraphQL is not your data model&lt;/h1&gt;
+
+&lt;p&gt;Another realization I’ve had in learning to apply GraphQL is that the schema is
+&lt;em&gt;not&lt;/em&gt; the actual data model, and therefore raw GraphQL responses cannot be
+directly used by the client. You &lt;em&gt;could&lt;/em&gt; choose to think of it this way, but
+you’re likely to run into some conundrums:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;a href=&quot;https://github.com/facebook/graphql/issues/101&quot;&gt;There is no free-form map data structure&lt;/a&gt;.
+There are only objects with fixed fields, scalars, and lists.&lt;/li&gt;
+&lt;li&gt;It is difficult to design abstractions over types.&lt;/li&gt;
+&lt;li&gt;The object tree you get in return from a query request is neither normalized
+nor is it an object graph (multiple copies of the same object may be
+returned).&lt;/li&gt;
+&lt;li&gt;Commonly used protocol patterns, like
+&lt;a href=&quot;https://facebook.github.io/relay/docs/graphql-connections.html&quot;&gt;the connection pattern&lt;/a&gt;,
+require explicit modeling within your schema.&lt;/li&gt;
+&lt;li&gt;The limitations of GraphQL&#39;s type system make certain modeling techniques
+difficult to directly model, such as
+&lt;a href=&quot;https://stackoverflow.com/questions/47933512/representing-enum-object-variant-type-in-graphql&quot;&gt;singletons within unions&lt;/a&gt;.&lt;/li&gt;
+&lt;li&gt;Recursive data types can’t be queried to undefined depth in their nested form.
+Think of your comment board with nested replies.&lt;/li&gt;
+&lt;/ul&gt;
+
+
+&lt;p&gt;The upshot of this is that there likely needs to be some process of conversion
+from your native data model on your server to your GraphQL API, and then again
+from your client’s API consumption code to its internal data model.
+&lt;a href=&quot;https://facebook.github.io/relay/&quot;&gt;Relay&lt;/a&gt; and
+&lt;a href=&quot;https://www.apollographql.com/client&quot;&gt;Apollo&lt;/a&gt; serve this purpose. Their utility
+wasn’t immediately clear to me when I naively imagined GraphQL to literally be a
+system for reproducing a slice of server-side object graph. (Hmm, where might I
+have gotten that impression from?)&lt;/p&gt;
+
+&lt;p&gt;A lot of discussion in the GraphQL space centers on data modeling—the nouns.
+There’s a lot of debate and worthwhile work to be done on that front, but one of
+my primary reasons for writing this piece is to think about the verbs. What
+happens when you think of GraphQL requests as not just verbs, but &lt;em&gt;chains&lt;/em&gt; of
+verbs? My inkling is that you start to be able to represent services in a much
+more fluid way. Complex processes no longer have to be orchestrated by API
+clients or hidden behind unwieldy black-box POST endpoints. Instead, clients can
+compose processes from the easily inspectable building blocks that the server
+provides via its GraphQL schema. That’s a whole different approach to API
+design.&lt;/p&gt;
+
+&lt;a name=&quot;So..where.to.now.&quot;&gt;&lt;/a&gt;
+&lt;h1&gt;So, where to now?&lt;/h1&gt;
+
+&lt;p&gt;I began by asserting that the future looks a lot &lt;em&gt;like&lt;/em&gt; GraphQL. But I did not
+say that GraphQL &lt;em&gt;is the future&lt;/em&gt;. I hedge because there are a lot of unanswered
+questions and some pain points within today’s GraphQL, even as it paints a
+compelling picture of the future. I may write a follow-up piece bringing up some
+of these gripes. At the moment, Facebook still largely controls the development
+of the technology and it has been slow to evolve. Arguably, this is a good
+thing, as the full-stack community continues to digest the basic concepts. But
+I’m sure impatient folks will attempt forks or create parallel technologies. How
+it all balances out is anybody’s guess.&lt;/p&gt;
+
+&lt;p&gt;Nonetheless, today’s GraphQL is already a tremendous leap forward from REST API
+design. It much more directly models the sort of data traversals a client needs
+to perform in order to do its job. I expect significant refinement within this
+space over the next couple years. And after a couple more, the days before
+GraphQL will be just another source of lore for grizzled vets like us.&lt;/p&gt;
+</description>
+        <pubDate>Tue, 08 May 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/05/08/is-graphql-the-future/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/05/08/is-graphql-the-future/</guid>
+        
+        
+        <category>api</category>
+        
+        <category>graphql</category>
+        
+        <category>programming</category>
+        
+        <category>rest</category>
+        
+      </item>
+    
+      <item>
+        <title>Fully Automated Standups</title>
+        <description>&lt;p&gt;When I began working at Artsy four years ago, remotely, I really didn&#39;t like the weekly engineering standup. I&#39;d sit in front of my computer and strain to hear a dozen people gathered around a laptop with Google Hangout. They&#39;d discuss implementation details for projects I wasn&#39;t familiar with, and then I&#39;d do the same to them (our mobile team was still very separate from our web team). Twenty minutes would pass and I didn&#39;t feel like my work experience at Artsy had been enriched in any way.&lt;/p&gt;
+
+&lt;p&gt;The first time I came to New York to visit the office – before moving here – I sat down with &lt;a href=&quot;https://github.com/dylanfareed&quot;&gt;Dylan&lt;/a&gt; and &lt;a href=&quot;https://github.com/orta&quot;&gt;Orta&lt;/a&gt;. Dylan ran the weekly standup, and Orta was also not a fan of the meeting. Dylan was clear: if the standup wasn&#39;t working for the two of us, then it wasn&#39;t working for anyone. So let&#39;s fix it together.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+&lt;p&gt;And we did. We installed new sound-baffling ceiling tiles to help remote workers hear the boardroom more clearly. We restructured updates, moving from individual updates to team updates. We introduced a section for people to ask and offer help. All kinds of changes. I started looking forward to standup.&lt;/p&gt;
+
+&lt;p&gt;At Artsy, when you see something that could be improved about the way that we work, you are expected to help improve it. Dylan taught me that lesson, and I still take it to heart.&lt;/p&gt;
+
+&lt;p&gt;Last summer, I started taking on more responsibilities for the Artsy Engineering team, including running the weekly standup meeting. It was previously run by a single engineer, &lt;a href=&quot;https://github.com/craigspaeth&quot;&gt;Craig&lt;/a&gt;, who was juggling a lot of team-wide responsibilities. I was happy to help him out and run the meeting, but I had only replaced &lt;em&gt;myself&lt;/em&gt; as a single-point-of-failure for standup; even with Orta running things sometimes, the process itself was still as brittle as when Craig was running things alone. After a few months, Orta and I decided to fix things.&lt;/p&gt;
+
+&lt;p&gt;Our goal: fully automated standups. No single person should ever be a point-of-failure for our team. We moved through a few distinct steps.&lt;/p&gt;
+
+&lt;p&gt;First, we had to document the process of running the standup. This was crucial: standups should be run as a function of the documentation, so that any engineer at Artsy can run an effective standup. The docs should not only help the engineer run the meeting, but help them feel &lt;em&gt;capable&lt;/em&gt; of running the meeting. And once documentation is in place, anyone can help improve the docs (and consequently, improve the process). The current &lt;a href=&quot;https://github.com/artsy/meta/blob/master/meta/open_standup.md&quot;&gt;docs are open source&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Next, we had to get other engineers running the meeting. We split up the responsibilities of the meeting into two roles: a talking part, and a note-taking part. Both are integral, and different people gravitate towards differently roles. Splitting things up not only made running the meeting easier, but it made running the meeting more appealing to newcomers.&lt;/p&gt;
+
+&lt;p&gt;Once the meeting was a two-person responsibility, we started bringing on other engineers to help. I would ask around to see who was interested in helping running a meeting, giving choice of role to the other person. After each meeting, I&#39;d ask the person about how we could improve the docs. Each week, the docs got better and better.&lt;/p&gt;
+
+&lt;p&gt;The next phase was moving to having standup run entirely by other engineers. I had a list of engineers who had never run a standup, and worked down the list to get as many engineers having run a meeting as possible. I made &lt;a href=&quot;https://github.com/artsy/meta/pull/21&quot;&gt;this pull request&lt;/a&gt; making it clear that running the standup meeting is a responsibility that every member of the team &lt;em&gt;shares&lt;/em&gt;.&lt;/p&gt;
+
+&lt;p&gt;Eventually, I felt we were ready to move to a self-perpetuating standup. At the end of each standup, we would solicit volunteers to run next week&#39;s meeting. Fully-automated standups! We&#39;d done it! Things were working, though we did recently decide to &lt;a href=&quot;https://github.com/artsy/meta/pull/32&quot;&gt;integrate the standup schedule into our new support on-call schedule&lt;/a&gt;; the engineers beginning their rotation were responsible for running the standup. This eliminated the kind of awkward &quot;okay who wants to do this next week?&quot; part of our meeting.&lt;/p&gt;
+
+&lt;p&gt;At each step, we improved the process. Through effective documentation and positive energy, we reduced the &lt;a href=&quot;https://en.wikipedia.org/wiki/Bus_factor&quot;&gt;bus factor&lt;/a&gt; for our engineering team&#39;s management. And more importantly, I think, we made it clear to every Artsy engineer that managing our team and improving how we work is a responsibility we have, together.&lt;/p&gt;
+</description>
+        <pubDate>Mon, 07 May 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/05/07/fully-automated-standups/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/05/07/fully-automated-standups/</guid>
+        
+        
+        <category>best practices</category>
+        
+        <category>culture</category>
+        
+        <category>people</category>
+        
+        <category>team</category>
+        
+      </item>
+    
+      <item>
+        <title>JavaScriptures 3 - Styled Components</title>
+        <description>&lt;p&gt;The third in our JavaScriptures series on the Artsy &lt;a href=&quot;http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/&quot;&gt;omakase&lt;/a&gt;. This workshop is a deep dive into &lt;a href=&quot;https://www.styled-components.com&quot;&gt;Styled
+Components&lt;/a&gt;, where we take our React app from the first workshop and convert it to use Styled Components. We
+have Anandaroop Roy and Jon Allured covering all the details.&lt;/p&gt;
+
+&lt;!-- more --&gt;
+
+
+
+
+&lt;center&gt;
+&lt;iframe width=&#39;100%&#39; height=&#39;400&#39; src=&#39;https://www.youtube.com/embed/K7xafqfcC-4&#39; frameborder=&#39;0&#39; allowfullscreen&gt;&lt;/iframe&gt;
+&lt;/center&gt;
+
+
+
+
+&lt;p style=&#39;text-align:right;&#39;&gt;&lt;a href=&quot;https://speakerdeck.com/artsyopensource/javascriptures-3-styled-components&quot;&gt;
+Slides on Speakerdeck
+&lt;/a&gt;&lt;/p&gt;
+
+
+
+</description>
+        <pubDate>Fri, 04 May 2018 00:00:00 +0000</pubDate>
+        <link>http://artsy.github.io/blog/2018/05/04/JavaScriptures-3-Styled-Components/</link>
+        <guid isPermaLink="true">http://artsy.github.io/blog/2018/05/04/JavaScriptures-3-Styled-Components/</guid>
+        
+        
+        <category>event</category>
+        
+        <category>javascript</category>
+        
+        <category>styledcomponents</category>
+        
+      </item>
+    
+  </channel>
+</rss>

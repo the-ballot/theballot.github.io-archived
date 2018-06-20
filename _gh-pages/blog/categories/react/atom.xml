@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: react | The Ballot]]></title>
+  <link href="https://www.theballot.com/blog/categories/react/atom.xml" rel="self"/>
+  <link href="https://www.theballot.com/"/>
+  <updated>2018-06-20T04:04:05-04:00</updated>
+  <id>https://www.theballot.com/</id>
+  <author>
+    <name><![CDATA[]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Managing Secrets in a React Native App]]></title>
+    <link href="https://www.theballot.com/blog/2018/06/15/cocoapods-keys-react-native/"/>
+    <updated>2018-06-15T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/06/15/cocoapods-keys-react-native</id>
+    <content type="html"><![CDATA[<!--
+Iɴᴛʀᴏᴅᴜᴄᴛɪᴏɴ
+-->
+
+
+<p>Hi! I'm Erik, a software engineer on the Purchase team. One of the most visible payoffs from Artsy's investments in React Native <a href="https://artsy.github.io/search/?q=react+native">over the past two years</a> has been the opening up of our mobile codebase to contributors like myself coming primarily from web stacks. It's nice to be able to build mobile interfaces with the same declarative API used by so many of our web projects, but sometimes we still need to bridge the divide to our Objective-C and Swift ecosystem. One such case: replacing the app secrets typically loaded from a deploy environment or web developer's <a href="https://www.npmjs.com/package/dotenv">dotenv</a> file.</p>
+
+<!-- more -->
+
+
+<!--
+Mᴀɪɴ Bᴏᴅʏ
+-->
+
+
+<p><a href="https://github.com/artsy/emission">Emission</a> is Artsy's React Native component library. It contains its own native app in the <code>/Example</code> folder, which uses <a href="https://artsy.github.io/blog/2015/01/21/cocoapods-keys-and-CI/">cocoapods-keys</a> to store secrets while still letting us code in the open. In order to expose these keys to our React Native components, however, we must do a fair bit of setup. Here's a straightforward how-to that also makes a quick tour through the iOS ecosystem for web developers looking at the React Native JavaScript runtime today.</p>
+
+<p>Links to examples below come from <a href="https://github.com/artsy/emission/pull/1086/commits/4a2a3e9260e97d791536cf38376a06b0ad0946a8">this commit</a> which adds a key for the Stripe API to Emission. When we are finished, a client app (<code>/Example</code>, <a href="https://github.com/artsy/eigen">Eigen</a>, etc.) will be able to initialize Emission with this secret, which will in turn make it available to React Native components.</p>
+
+<a name="Steps"></a>
+<h2>Steps</h2>
+
+<a name="L1..Add.the.key.to.the.app.s.Podfile."></a>
+<h4>1. Add the key to the app's Podfile.</h4>
+
+<p>This is the extent of <code>cocoapods-keys</code> official <a href="https://github.com/orta/cocoapods-keys#usage">setup</a>, and after this you <strong>could</strong> set the key via <code>pod keys set &lt;NAME&gt;</code> or <code>pod install</code>... but we have more to do.</p>
+
+<p><a href="https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Example/Podfile#L63">/Example/Podfile</a>:</p>
+
+<pre><code class="diff">plugin 'cocoapods-keys', {
+  :target =&gt; 'Emission',
+  :keys =&gt; [
+    'ArtsyAPIClientSecret',
+    'ArtsyAPIClientKey',
++    'StripePublishableKey',
+  ]
+}
+</code></pre>
+
+<hr />
+
+<a name="L2..Configure.the.library.to.consume.our.new.key"></a>
+<h4>2. Configure the library to consume our new key</h4>
+
+<p>We'll need to update the <code>initWithUserId...</code> function — one <strong>fun</strong> part of adjusting to Objective-C is that rather than named functions, we just refer to them by their entire signatures — to expose the new key as a property and add it to <code>constantsToExport</code> (<a href="https://facebook.github.io/react-native/docs/native-modules-ios.html#exporting-constants">docs</a>).</p>
+
+<p>Note that this is happening in our <em>Emission Pod</em>; The pod now expects that key to be available in our <em>consuming</em> Example app as defined above.</p>
+
+<p><a href="https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Pod/Classes/Core/AREmission.h#L17-L34">/Pod/Classes/Core/AREmission.h</a>:</p>
+
+<pre><code class="diff">// ENV Variables
+ #import &lt;React/RCTBridgeModule.h&gt;
+
+ @interface AREmissionConfiguration : NSObject &lt;RCTBridgeModule&gt;
+
++ @property (nonatomic, copy, readonly, nullable) NSString *stripePublishableKey;
+
+ - (instancetype)initWithUserID:(NSString *)userID
+           authenticationToken:(NSString *)token
+                     sentryDSN:(nullable NSString *)sentryDSN
++         stripePublishableKey:(NSString *)stripePublishableKey
+              googleMapsAPIKey:(nullable NSString *)googleAPIKey
+                    gravityURL:(NSString *)gravity
+                metaphysicsURL:(NSString *)metaphysics
+                     userAgent:(NSString *)userAgent;
+</code></pre>
+
+<p><code>AREmission</code>'s implementation (.m) needs to be configured to take this new key- It will be exported to our React Native components as <code>Emission</code>. We make our initializer match the signature defined in the header (.h) file, and add an instance <code>_stripePublishableKey</code> to match the <code>@property</code> declaration.</p>
+
+<p><a href="https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Pod/Classes/Core/AREmission.m#L24-L60">/Pod/Classes/Core/AREmission.m</a>:</p>
+
+<pre><code class="diff"> @implementation AREmissionConfiguration
+ RCT_EXPORT_MODULE(Emission);
+ # ...
+
+ - (NSDictionary *)constantsToExport
+ {
+   return @{
++    @"stripePublishableKey": self.stripePublishableKey ?: @"",
+     # ...lots more
+   };
+ }
+
+ - (instancetype)initWithUserID:(NSString *)userID
+            authenticationToken:(NSString *)token
+                      sentryDSN:(NSString *)sentryDSN
++          stripePublishableKey:(NSString *)stripePublishableKey
+               googleMapsAPIKey:(NSString *)googleAPIKey
+                     gravityURL:(NSString *)gravity
+                 metaphysicsURL:(NSString *)metaphysics
+                      userAgent:(nonnull NSString *)userAgent
+ {
+     self = [super init];
+     _userID = [userID copy];
++    _stripePublishableKey = [stripePublishableKey copy];
+     # ... More copies...
+     return self;
+ }
+</code></pre>
+
+<p><em>Why is <code>copy</code> needed at all? See <a href="https://stackoverflow.com/questions/387959/nsstring-property-copy-or-retain/388002#388002">here</a>.</em></p>
+
+<hr />
+
+<a name="L3..Configure.the.example.app.to.expose.the.new.key.to.our.library"></a>
+<h4>3. Configure the example app to expose the new key to our library</h4>
+
+<p>After making sure we have imported the keys from <code>cocoapods-keys</code> we update Emission's setup to use the new initializer signature we defined above.</p>
+
+<p><a href="https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/Example/Emission/AppDelegate.m#L109">Example/Emission/AppDelegate.m</a>:</p>
+
+<pre><code class="diff">#import &lt;Keys/EmissionKeys.h&gt;
+
+  - (void)setupEmissionWithUserID:(NSString *)userID accessToken:(NSString *)accessToken keychainService:(NSString *)service;
+  {
+    # ...
+     AREmissionConfiguration *config = [[AREmissionConfiguration alloc]
+      initWithUserID:userID
+      authenticationToken:accessToken
+      sentryDSN:nil
++     stripePublishableKey:keys.stripePublishableKey
+      googleMapsAPIKey:nil
+      gravityURL:setup.gravityURL
+      metaphysicsURL:setup.metaphysicsURL
+      userAgent:@"Emission Example"];
+    # ...
+</code></pre>
+
+<hr />
+
+<a name="L4..Use.that.configured.key.in.a.React.Native.component."></a>
+<h4>4. Use that configured key in a React Native component.</h4>
+
+<p><code>Emission</code> is now exposed along with its configured keys via React Native's <a href="https://facebook.github.io/react-native/docs/native-modules-ios.html">NativeModules</a>.</p>
+
+<p><a href="https://github.com/artsy/emission/blob/4a2a3e9260e97d791536cf38376a06b0ad0946a8/src/lib/components/bidding/screens/confirmfirsttimebid.tsx#l31">src/lib/Components/Bidding/Screens/ConfirmFirstTimeBid.tsx</a>:</p>
+
+<pre><code class="js">import { NativeModules } from "react-native";
+const Emission = NativeModules.Emission || {};
+
+stripe.setOptions({
+  publishableKey: Emission.stripePublishableKey
+});
+</code></pre>
+
+<!--
+Cᴏɴᴄʟᴜsɪᴏɴ
+-->
+
+
+<p>That's it! Compared to a familiar dotenv file, <strong>it</strong> certainly means a bit more ceremony here, but we are working through React Native code, its containing Pod <em>and</em> a consuming app. The process is more complicated, but it's also a nice overview of some fundamentals of Objective-C, iOS development and bridging the gap between react and mobile native code.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[JavaScriptures 5 - Tooling]]></title>
+    <link href="https://www.theballot.com/blog/2018/06/15/JavaScriptures-5-Babel-Webpack/"/>
+    <updated>2018-06-15T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/06/15/JavaScriptures-5-Babel-Webpack</id>
+    <content type="html"><![CDATA[<p>The sixth, and last in our JavaScriptures series on the Artsy <a href="http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/">omakase</a>. This talk covers a lot of the
+tooling basics for setting up a web JavaScript project. In this talk <a href="https://github.com/damassi">Chris</a> covers the how to use Webpack
+and Babel in a fresh application.</p>
+
+<!-- more -->
+
+
+
+
+<center>
+<iframe width='100%' height='400' src='https://www.youtube.com/embed/NhYot0NC6q8' frameborder='0' allowfullscreen></iframe>
+</center>
+
+
+
+
+<p style='text-align:right;'><a href="https://speakerdeck.com/artsyopensource/javascriptures-5-babel-and-webpack?slide=1">
+Slides on Speakerdeck
+</a></p>
+
+
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[JavaScriptures 4.2 - Local State]]></title>
+    <link href="https://www.theballot.com/blog/2018/06/15/JavaScriptures-4.2-Local-State/"/>
+    <updated>2018-06-15T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/06/15/JavaScriptures-4.2-Local-State</id>
+    <content type="html"><![CDATA[<p>The fifth in our JavaScriptures series on the Artsy <a href="http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/">omakase</a>. This talk is the second part on state
+management inside JavaScript projects. In this talk <a href="https://github.com/damassi">Chris</a> and <a href="https://twitter.com/seevexes">Eve</a> cover the basics of how we handle
+interacting with local state in our different applications.</p>
+
+<p><a href="https://github.com/damassi">Chris</a> and <a href="https://twitter.com/seevexes">Eve</a> <a href="https://github.com/artsy/javascriptures/tree/master/5_intro-to-state">create three demos</a> which cover using Reacts <code>setState</code>, <a href="https://github.com/artsy/javascriptures/blob/master/5_intro-to-state/2-redux">Redux</a> and
+<a href="https://github.com/jamiebuilds/unstated">Unstated</a> to make complex applications.</p>
+
+<!-- more -->
+
+
+
+
+<center>
+<iframe width='100%' height='400' src='https://www.youtube.com/embed/uLeZnpvVpxA' frameborder='0' allowfullscreen></iframe>
+</center>
+
+
+
+
+<p style='text-align:right;'><a href="https://speakerdeck.com/artsyopensource/javascriptures-4-dot-2-local-state?slide=1">
+Slides on Speakerdeck
+</a></p>
+
+
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[JavaScriptures 4.1 - Relay]]></title>
+    <link href="https://www.theballot.com/blog/2018/06/13/JavaScriptures-4.1-Relay/"/>
+    <updated>2018-06-13T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/06/13/JavaScriptures-4.1-Relay</id>
+    <content type="html"><![CDATA[<p>The fourth in our JavaScriptures series on the Artsy <a href="http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/">omakase</a>. This talk is the first part on state
+management inside JavaScript projects. In this talk <a href="https://twitter.com/alloy">Alloy</a> covers the basics of how we handle interacting with
+external state with our GraphQL API <a href="https://github.com/artsy/metaphysics/">metaphysics</a>.</p>
+
+<p><a href="https://twitter.com/alloy">Alloy</a> takes our <a href="https://github.com/artsy/javascriptures/tree/master/4_intro-to-relay">existing demo application</a> from the previous JavaScriptures and converts it to use Relay
+with all of the Artsy tooling.</p>
+
+<!-- more -->
+
+
+
+
+<center>
+<iframe width='100%' height='400' src='https://www.youtube.com/embed/-Ax46yDG7oc' frameborder='0' allowfullscreen></iframe>
+</center>
+
+
+
+
+<p style='text-align:right;'><a href="https://speakerdeck.com/artsyopensource/javascriptures-4-dot-1-relay?">
+Slides on Speakerdeck
+</a></p>
+
+
+
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[JavaScriptures 1 - React]]></title>
+    <link href="https://www.theballot.com/blog/2018/05/01/JavaScriptures-1-React/"/>
+    <updated>2018-05-01T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/05/01/JavaScriptures-1-React</id>
+    <content type="html"><![CDATA[<p>We're a growing engineering team, and that tends to mean that people move towards being more specialized. This is
+great for an individual's technical depth, but can weaken their breadth of knowledge on new technology. We want to
+encourage the growth of both within our engineering team. To address this our front-end engineers worked together to
+run a series of workshops for the whole engineering team.</p>
+
+<p>We called this JavaScriptures, 6 workshop-style deep dives into the major parts of the <a href="http://artsy.github.io/blog/2017/02/05/Front-end-JavaScript-at-Artsy-2017/">Artsy JavaScript
+omakase</a>. They are: React, TypeScript, Styled Components, Relay and Redux, Babel and Webpack. Today I'm
+posting the <a href="https://youtu.be/k_f7Ff7bREc">recording</a> and <a href="https://speakerdeck.com/artsyopensource/javascriptures-1-react">slides</a> from a deep dive into React hosted by <a href="https://twitter.com/lucsucces">Luc Succes</a> and
+myself.</p>
+
+<!-- more -->
+
+
+
+
+<center>
+<iframe width='100%' height='400' src='https://www.youtube.com/embed/k_f7Ff7bREc' frameborder='0' allowfullscreen></iframe>
+</center>
+
+
+
+
+<p style='text-align:right;'><a href="https://speakerdeck.com/artsyopensource/javascriptures-1-react">
+Slides on Speakerdeck
+</a></p>
+
+
+
+]]></content>
+  </entry>
+  
+</feed>

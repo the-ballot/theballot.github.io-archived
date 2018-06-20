@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: best practices | The Ballot]]></title>
+  <link href="https://www.theballot.com/blog/categories/best-practices/atom.xml" rel="self"/>
+  <link href="https://www.theballot.com/"/>
+  <updated>2018-06-20T04:04:05-04:00</updated>
+  <id>https://www.theballot.com/</id>
+  <author>
+    <name><![CDATA[]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[My First Week On Call]]></title>
+    <link href="https://www.theballot.com/blog/2018/05/30/my-first-week-on-call/"/>
+    <updated>2018-05-30T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/05/30/my-first-week-on-call</id>
+    <content type="html"><![CDATA[<p>As I write this, I have completed my first ever engineering on-call rotation at Artsy, so naturally I had to write a blog post about some of the things I learned.</p>
+
+<!-- more -->
+
+
+<p>A year ago, I would have been terrified to be one of two engineers responsible for handling everything from re-sending automated emails to fixing total site outages, but <a href="https://ashfurrow.com/blog/perspective-of-the-polyglot/">I have grown a lot</a> so being on-call was only <em>regular</em>-level intimidating. And indeed, with supportive documentation and a good partner, I didn't experience any situations where I felt truly lost about what to do next.</p>
+
+<p>But I did learn a few things. So let's discuss a few things that weren't immediately obvious to me.</p>
+
+<a name="Ignore.My.Instinct.to.Fix.Things.Right.Away"></a>
+<h2>Ignore My Instinct to Fix Things Right Away</h2>
+
+<p>This sounds really counterintuitive, right? I mean, a server is down, let's reboot it so it's up again! It's got a little red X next to it in AWS, let's make it a green checkmark again! I want that checkmark!</p>
+
+<p>But that's not always the best course of action. Sometimes, fixing something right away would deprive us of the opportunity to figure out <em>why</em> it broke in the first place. For example: we had Rails servers running out of disk space, and rebooting those servers would have refreshed their drives and fixed the problem, but one of our platform engineers asked me to wait so they could ssh in and examine the contents of the filesystems. In the mean time, the load balancer had already routed traffic around the servers, so there was no need to rush to fix anything.</p>
+
+<p>My instinct to fix things right away was at odds with the team's desire to understand why something broke.</p>
+
+<a name="What.is.an.Incident..Even."></a>
+<h2>What is an Incident, Even?</h2>
+
+<p>One thing became really clear to be, really quickly: people have many different, valid perspectives on what an "incident" is. Our support documentation goes into detail about what our responsibilities as on-call engineers are responsible for, and what should be routed through product teams to be prioritized, but my support partner and I still hit cases where we weren't quite sure if we should take action.</p>
+
+<p>Sometimes, issues of critical importance were brought to our #incidents Slack channel, but weren't <em>really</em> incidents, from an Engineering perspective. We erred on the side of helping our colleagues, but it's difficult. I want to help people! But I also have responsibilities. Balancing the two is a skill every engineer has to develop, and being on-call highlighted the importance of balance in a new way for me.</p>
+
+<p>My first ever jobs were retail, where I helped rural Canadians learn to use their first ever cell phones, and IT helpdesks; both taught me how to handle support requests in a way that makes the other person feel like things are going to be okay. I had to reapply those skills when on-call because sometimes what people were bringing to my attention fell outside the scope of an "incident". Consider the response:</p>
+
+<blockquote><p>What you've reported isn't an incident, talk to your PM.</p></blockquote>
+
+<p>... and contrast it with:</p>
+
+<blockquote><p>This falls outside the scope of immediate support, so I've opened a ticket for you. You can talk to the team PM about prioritization.</p></blockquote>
+
+<p>This kind of reply also aligns with Artsy's <a href="https://github.com/artsy/meta/blob/master/meta/what_is_artsy.md#artsy-values">values</a> of <strong>Positive Energy</strong> and <strong>People are Paramount</strong>. Everyone working at Artsy is here to make art a bigger part of culture, and that shared understanding helped.</p>
+
+<a name="We.Need.to.Improve.our.Automated.Alerts"></a>
+<h2>We Need to Improve our Automated Alerts</h2>
+
+<p>For a few months now, Artsy Engineering has been discussing how to consolidate our automated alerts. I somehow got it in my head that anything in our #alerts channel needed immediate engineer attention, when in fact, our #alerts channel is often noisy. By the final day of my rotation, I learned that not everything needed immediate attention.</p>
+
+<p>That's a bit of a problem. There are alerts that need immediate intervention ("the API servers are all down") and there are alerts that need no intervention ("this server is responding slowly, oh wait, it's back to normal, never mind"), and then there are the tricky ones: the ones that need <em>eventual</em> intervention ("gosh, our image processing API out of disk space for the third time in a month, we need to look into that"). Figuring out how to sort mid-level, important-but-not-urgent automated alerts from critical ones will be a critical part of our long-term support process.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Fully Automated Standups]]></title>
+    <link href="https://www.theballot.com/blog/2018/05/07/fully-automated-standups/"/>
+    <updated>2018-05-07T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/05/07/fully-automated-standups</id>
+    <content type="html"><![CDATA[<p>When I began working at Artsy four years ago, remotely, I really didn't like the weekly engineering standup. I'd sit in front of my computer and strain to hear a dozen people gathered around a laptop with Google Hangout. They'd discuss implementation details for projects I wasn't familiar with, and then I'd do the same to them (our mobile team was still very separate from our web team). Twenty minutes would pass and I didn't feel like my work experience at Artsy had been enriched in any way.</p>
+
+<p>The first time I came to New York to visit the office – before moving here – I sat down with <a href="https://github.com/dylanfareed">Dylan</a> and <a href="https://github.com/orta">Orta</a>. Dylan ran the weekly standup, and Orta was also not a fan of the meeting. Dylan was clear: if the standup wasn't working for the two of us, then it wasn't working for anyone. So let's fix it together.</p>
+
+<!-- more -->
+
+
+<p>And we did. We installed new sound-baffling ceiling tiles to help remote workers hear the boardroom more clearly. We restructured updates, moving from individual updates to team updates. We introduced a section for people to ask and offer help. All kinds of changes. I started looking forward to standup.</p>
+
+<p>At Artsy, when you see something that could be improved about the way that we work, you are expected to help improve it. Dylan taught me that lesson, and I still take it to heart.</p>
+
+<p>Last summer, I started taking on more responsibilities for the Artsy Engineering team, including running the weekly standup meeting. It was previously run by a single engineer, <a href="https://github.com/craigspaeth">Craig</a>, who was juggling a lot of team-wide responsibilities. I was happy to help him out and run the meeting, but I had only replaced <em>myself</em> as a single-point-of-failure for standup; even with Orta running things sometimes, the process itself was still as brittle as when Craig was running things alone. After a few months, Orta and I decided to fix things.</p>
+
+<p>Our goal: fully automated standups. No single person should ever be a point-of-failure for our team. We moved through a few distinct steps.</p>
+
+<p>First, we had to document the process of running the standup. This was crucial: standups should be run as a function of the documentation, so that any engineer at Artsy can run an effective standup. The docs should not only help the engineer run the meeting, but help them feel <em>capable</em> of running the meeting. And once documentation is in place, anyone can help improve the docs (and consequently, improve the process). The current <a href="https://github.com/artsy/meta/blob/master/meta/open_standup.md">docs are open source</a>.</p>
+
+<p>Next, we had to get other engineers running the meeting. We split up the responsibilities of the meeting into two roles: a talking part, and a note-taking part. Both are integral, and different people gravitate towards differently roles. Splitting things up not only made running the meeting easier, but it made running the meeting more appealing to newcomers.</p>
+
+<p>Once the meeting was a two-person responsibility, we started bringing on other engineers to help. I would ask around to see who was interested in helping running a meeting, giving choice of role to the other person. After each meeting, I'd ask the person about how we could improve the docs. Each week, the docs got better and better.</p>
+
+<p>The next phase was moving to having standup run entirely by other engineers. I had a list of engineers who had never run a standup, and worked down the list to get as many engineers having run a meeting as possible. I made <a href="https://github.com/artsy/meta/pull/21">this pull request</a> making it clear that running the standup meeting is a responsibility that every member of the team <em>shares</em>.</p>
+
+<p>Eventually, I felt we were ready to move to a self-perpetuating standup. At the end of each standup, we would solicit volunteers to run next week's meeting. Fully-automated standups! We'd done it! Things were working, though we did recently decide to <a href="https://github.com/artsy/meta/pull/32">integrate the standup schedule into our new support on-call schedule</a>; the engineers beginning their rotation were responsible for running the standup. This eliminated the kind of awkward "okay who wants to do this next week?" part of our meeting.</p>
+
+<p>At each step, we improved the process. Through effective documentation and positive energy, we reduced the <a href="https://en.wikipedia.org/wiki/Bus_factor">bus factor</a> for our engineering team's management. And more importantly, I think, we made it clear to every Artsy engineer that managing our team and improving how we work is a responsibility we have, together.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Programmer Misconceptions about Art]]></title>
+    <link href="https://www.theballot.com/blog/2018/04/18/programmer-misconceptions-about-art/"/>
+    <updated>2018-04-18T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/04/18/programmer-misconceptions-about-art</id>
+    <content type="html"><![CDATA[<p>Our mission at Artsy has been to make a world where everyone is moved by art every day, and at a high level, the way that our engineering team supports that mission is through building software. We have built systems and databases and user interfaces that represent different facets of the art world, and throughout our work, we have... made some mistakes.</p>
+
+<p>That's okay! Programmers make mistakes all the time. There is <a href="https://github.com/kdeldycke/awesome-falsehood">a large list of blog posts</a> describing various programmer misconceptions, from subjects you might expect would be simple to model in computers, like units of measurement and time, to subjects that are based more in the human condition, like postal addresses and marriage.</p>
+
+<p>In the interest of openness and sharing what we've learned, the Artsy Engineering team has come up with the following list of misconceptions programmers believe about art. Thank you to everyone at Artsy who contributed to this list.</p>
+
+<!-- more -->
+
+
+<ul>
+<li>All artworks have an artist (some artworks are attributed to "cultural makers", others have a manufacturer).</li>
+<li>All artworks have exactly one artist (some artworks are collaborations).</li>
+<li>All artworks are unique (there are editions, reproductions, and series of works, and modeling the relationships between them all is nontrivial).</li>
+<li>All lots in an art auction are artworks (some lots are "experiential", like a visit to an artist's studio).</li>
+<li>Only rich people buy art.</li>
+<li>Only rich people can afford to buy art, and everyone else just buys posters of "real" art.</li>
+<li>All artworks have a title (some are untitled).</li>
+<li>"Untitled" signifies an artwork has no title (some artworks are titled "Untitled").</li>
+<li>All artwork titles can fit inside 512 characters (not true, <a href="https://www.artsy.net/artwork/matt-goerzen-sockpuppet-theatre-representing-the-techniques-tools-and-environments-whereby-hackers-and-other-info-warriors-might-seek-to-parse-through-elsewhere-distorted-informational-domains-to-make-sense-of-them-and-also-possibly-to-acquire-by-illicit-or-clever-means-good-information-that-can-then-be-communicated-in-a-way-that-sheds-light-on-deceptions-but-can-also-be-difficult-to-evaluate-on-their-own-terms-due-to-the-elite-requisites-of-interpreting-such-knowledge-or-more-generalized-uncertaintities-regarding">here is a counterexample</a>).</li>
+<li>An artwork is associated with a natural, canonical category.</li>
+<li>An artwork belongs to only one gallery/collector/auction house at a time (provenance of artworks is complicated, and there is no canonical source of truth).</li>
+<li>Art should always be rendered at its maximum size (there are complex business constraints and art world norms that need to be considered).</li>
+<li>People buy art mostly for its visual qualities (most people buy art because of a story, because they understand what the artwork is trying to say, or because they simply can't stop thinking about it).</li>
+<li>People don't buy art from JPEGs (in fact, people buy art that hasn't even been created yet).</li>
+<li>"My kid can paint that" (<a href="https://twitter.com/ashfurrow/status/707273704640798720">but did they?</a>).</li>
+<li>The art market needs technology because it's inefficient (the art market needs technology because technology can help expand the entire art world).</li>
+<li>Intermediaries in the art market are bad (eg. galleries: they enable artists to make works for years before they sell anything, they are the enabler, not the obstacle).</li>
+<li>There is one "art world" (there are thousands of galleries around the world, specializing in everything from contemporary jewelry and emerging conceptual art to Chinese scroll painting and regional landscapes).</li>
+<li>Your opinion on art doesn't matter, the industry will independently determine value of an artwork (everyone has opinions, your appreciation of art is <em>all</em> about <em>you</em>).</li>
+<li>The art world is hermetic and isn't relevant to my life (in fact the arts contribute billions of dollars to the economy, employ thousands of people, have a ripple effect on urban life, and are often a major source of inspiration for the TV, movies, and books we all consume on a daily basis).</li>
+<li>Gallerists are fancy people in a luxury business, living fancy lives (in fact, the average salary for a gallery owner is way lower than you think).</li>
+<li>Art and engineering are orthogonal (nope, just look at us!).</li>
+</ul>
+
+
+<p>Do you have expertise in an area programmers often get wrong? Write a blog post and add it to <a href="https://github.com/kdeldycke/awesome-falsehood">the list of misconceptions</a>!</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[How to Write Great Outage Post-Mortems]]></title>
+    <link href="https://www.theballot.com/blog/2014/11/19/how-to-write-great-outage-post-mortems/"/>
+    <updated>2014-11-19T12:21:00-05:00</updated>
+    <id>https://www.theballot.com/blog/2014/11/19/how-to-write-great-outage-post-mortems</id>
+    <content type="html"><![CDATA[<p>The website is finally back up after crashing hard for 4 hours straight.</p>
+
+<p>Recently AWS decided to <a href="http://aws.amazon.com/blogs/aws/ec2-maintenance-update">reboot a few of your servers for a critical update</a>. It didn't seem like it was going to be a big deal, except that the schedule was only accommodating if you were in the Pacific Northwest. The first reboot took out a secondary replica of our MongoDB database. Unfortunately <a href="https://github.com/mongoid/moped/issues/321">the driver handled that poorly</a> and spent the first 400ms of every subsequent HTTP request trying to reconnect to the missing instance. That server came back up, but failed to find its storage volumes because of a human mistake in a past migration and the alerts were mistakenly silenced by someone monitoring the system. A few hours later the primary was being stepped down and rebooted, sending the driver into panic over <a href="https://github.com/mongoid/moped/issues/323">another bug</a>. The site went down.</p>
+
+<p>None of this was obvious while it was happening as the rate of automated alerts grew. Engineers communicated to the team that they are actively focusing on bringing the systems back up. This helped to fend off a large amount of instant messages, e-mails, texts and phone calls from various people on the team that were in the middle of demoing something to a very important prospective customer on the other side of the planet. It was also the middle of the night in New York.</p>
+
+<p>Now that all the systems are back up, lets write a detailed outage post-mortem.</p>
+
+<!-- more -->
+
+
+<a name="Whose.Job.is.It."></a>
+<h2>Whose Job is It?</h2>
+
+<p>In a small or medium-sized company, the most senior engineering manager, CTO, VP or Head of Engineering should be writing an outage post-mortem. It's their job and responsibility to acknowledge, understand and explain what happened. Focusing attention away from the individual contributors allows the team to learn from the mistakes and address the root causes in time without the unnecessary stress or pressure during a crisis.</p>
+
+<a name="Recipients"></a>
+<h2>Recipients</h2>
+
+<p>The post-mortem audience includes customers, direct reports, peers, the company's executive team and often investors. The e-mail may be published on your website, and otherwise goes to the entire team. It's critical to bcc everyone. This is the equivalent of a locked thread, avoiding washing the laundry in public: one of the worst possible things to see is when a senior manager replies back pointing an individual who made a mistake, definitely not an email you want accidentally sent to the entire company.</p>
+
+<p>I usually begin my e-mails with <em>Team (on the bcc), ...</em>.</p>
+
+<p>I also bcc myself and label the e-mail "Outages", to be able to easily find the incident history next time around.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/header.png" alt="header" /></p>
+
+<a name="Outage.Email.Subject"></a>
+<h2>Outage Email Subject</h2>
+
+<p>Post-mortem subjects should include a date and a duration. This gets right to the point and offers a summary of the impact.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/subject.png" alt="subject" /></p>
+
+<a name="Outage.Summary"></a>
+<h2>Outage Summary</h2>
+
+<p>The outage e-mail begins with a summary, a slightly expanded version of the subject line. Many people won't read the details, so include graphs. These should tell the same story as the description of the outage. I use <a href="http://newrelic.com">NewRelic's</a>.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/summary.png" alt="summary" /></p>
+
+<a name="What.Caused.the.Outage"></a>
+<h2>What Caused the Outage</h2>
+
+<p>Explain what caused the outage on a timeline. Every incident begins with a specific trigger at a specific time, which often causes some unexpected behavior. For example, our servers were rebooted and we expected them to come back up intact, which didn't happen. Furthermore, every incident has a root cause: the reboot itself was trigger, however a bug in the driver caused the actual outage. Finally, there're consequences to every incident, the most obvious one is that the site goes down.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/cause.png" alt="cause" /></p>
+
+<a name="How.was.the.Outage.Resolved"></a>
+<h2>How was the Outage Resolved</h2>
+
+<p>Now that the timeline of the outage is established, we explain what actions took place to resolve it.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/resolution.png" alt="resolution" /></p>
+
+<a name="The.Post-Mortem"></a>
+<h2>The Post-Mortem</h2>
+
+<p>The post-mortem answers the single most important question of what could have prevented the outage.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/post-mortem.png" alt="post-mortem" /></p>
+
+<a name="Outage.History"></a>
+<h2>Outage History</h2>
+
+<p>To most humans that encounter bugs, it may seem like your systems have failures all the time. It's important to educate everyone that an outage is much more than a bug and that it hopefully doesn't happen frequently. Provide a history of outages, referencing the last one.</p>
+
+<p><img src="/images/2014-11-19-how-to-write-great-outage-post-mortems/history.png" alt="history" /></p>
+
+<a name="Don.t.Bury.It"></a>
+<h2>Don't Bury It</h2>
+
+<p>A few final words. Despite how painful an outage may have been, the worst thing you can do is to bury it and never properly close the incident in a clear and transparent way. Most humans come together in times of crisis and communication around outage post-mortems, in my experience, has always been met with positive energy, understanding comments, constructive suggestions and numerous offers to help.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Launching a Security Bug Bounty Program at Artsy]]></title>
+    <link href="https://www.theballot.com/blog/2014/09/24/launching-a-security-bug-bounty-program-at-artsy/"/>
+    <updated>2014-09-24T12:21:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2014/09/24/launching-a-security-bug-bounty-program-at-artsy</id>
+    <content type="html"><![CDATA[<p>Many established companies have bug bounty programs, including a recently publicized <a href="http://www.forbes.com/sites/kashmirhill/2014/09/10/bug-bounty-programs">Twitter Bug Bounty</a>. Some use services, such as <a href="https://hackerone.com">HackerOne</a> or <a href="https://bugcrowd.com">BugCrowd</a>. In early September 2014 we quietly launched <a href="https://artsy.net/security">our own Security Bug Bounty</a>. Since then we have fixed 14 issues reported by 15 security researchers and paid $750 in bounty. In the process we have learned a ton and wanted to share some things that would have probably done a little bit differently, knowing what we know now.</p>
+
+<p>In this post I will focus on both technical and non-technical takeaways, and will provide an extensive list of vulnerabilities that should have been dealt with before launching our bug bounty.</p>
+
+<!-- more -->
+
+
+<a name="Before.You.Begin"></a>
+<h2>Before You Begin</h2>
+
+<p>Our security bug bounty program started with an engineer (myself) creating a <a href="https://artsy.net/security">document</a> on our website, largely inspired from other bug bounty programs. Our staff attorney wanted to review and edit it, something that definitely needed to be done.</p>
+
+<p>A less evident step was to have a conversation with the finance department about whether or not bounty could be paid to individuals living in countries that may have U.S. sanctions imposed on them (see <a href="http://www.treasury.gov/resource-center/faqs/Sanctions/Pages/answer.aspx">What countries do I need to worry about in terms of U.S. sanctions?</a>). We also needed to talk about the terms under which reward payments could be made at all - we now require the individual's full name and postal address. Other bounty programs, including <a href="https://bounty.github.com/">Github's</a>, require a <a href="http://www.irs.gov/pub/irs-pdf/fw9.pdf">W9</a> for U.S. citizens or a <a href="http://www.irs.gov/pub/irs-pdf/fw8ben.pdf">W8_BEN</a> for non-U.S. citizens before any payment can be made (we may start doing this as well).</p>
+
+<p>Another question raised was regarding budget and how much money I expected to pay. With about $50 a bug I estimated that this program would not exceed about $1,000 in the first few months, with an initial spending spike, because with time bugs would be harder to find. This was the wrong way to think about it - hacking is a skill and better hackers are paid more to spend more time on a single issue. We are now receiving only a fraction of bug reports, but new issues typically required much more effort to engineer. Those cost us more money, proportional to potential reputation loss. To sum this up, I recommend budgeting a fixed quarterly amount and using it as a reference to cap the maximum amount of dollars paid for a single issue.</p>
+
+<p>It should be clear that every dollar of the $1,000 spent each month is worth every penny when you consider having exploitable security vulnerabilities in your production systems.</p>
+
+<a name="Security.Bug.Bounty.Services"></a>
+<h2>Security Bug Bounty Services</h2>
+
+<p>I have looked at the many bug bounty services and were quite impressed with their offerings, their ability to automatically recognize duplicates and to report on a security researcher's reputation. However, I didn't want to add yet another service in the plethora of services that we already use and wanted to have some brand control. In all honesty I do not know whether rolling out our own was or wasn't the best decision, but we're getting security bug reports, fixing real issues, and that's what matters.</p>
+
+<a name="Full.Time.Attention.Required"></a>
+<h2>Full Time Attention Required</h2>
+
+<p>The early days of the bug bounty program needed full time attention from one engineer who knew the entire system very well. This meant reading every report, triaging it as something new or already known, and opening detailed issues in the internal bug tracking systems. We labeled every issue as "Security Bounty" and created a "Security Bounty" project in Pivotal Tracker for issues that span multiple projects. We also found it useful to keep a Google Docs Spreadsheet to track the individuals reporting issues in a way where you can easily copy-paste all the issues that they have reported into an email to give them an update. <a href="https://docs.google.com/spreadsheets/d/1_Bq0jMImwU_r2-R76d2vqsYPLt9AB02lz2ZowK77yHc/edit?usp=sharing">Here's such a blank spreadsheet</a> with some formulas that can instantly tell you how many issues were opened, fixed, etc.</p>
+
+<a name="Communicating.the.Program.to.the.Team"></a>
+<h2>Communicating the Program to the Team</h2>
+
+<p>After running the program for a week I sent an email with a bit of statistics and explanations to the entire team. The entire e-mail can be found <a href="https://gist.github.com/dblock/5781f9b4931191de42b4">here</a>, and if there's one thing you retain from this post, that should be it. The e-mail was extremely well received, highlighting both the importance of explaining all-the-things to the rest of the company and being very transparent about such sensitive issues as security.</p>
+
+<a name="Classes.of.Bugs"></a>
+<h2>Classes of Bugs</h2>
+
+<p>While we were very diligent about large classes of potential vulnerabilities, such as SQL injections, most issues reported by the independent security researchers were also avoidable and should have been fixed before launching the program. Other issues should have been reviewed and acknowledged as a known, but acceptable risk upfront as well.</p>
+
+<a name="SSL..Secure.Cookies.and.HSTS"></a>
+<h3>SSL, Secure Cookies and HSTS</h3>
+
+<p>If you let users signup and log-in or enter any personal information, your entire site must run under SSL. We were half way through this transition with some services still open for both SSL and non-SSL requests. Also you must enable <a href="https://scotthelme.co.uk/hsts-the-missing-link-in-tls">HSTS</a>, so that browsers that have visited your site before make an SSL request even if the user typed a non-SSL address, avoiding leaking session data over an insecure connection.</p>
+
+<p>In Rails, HSTS is turned on with <code>config.force_ssl = true</code>. In node.js applications we use <a href="https://github.com/artsy/force/blob/master/lib/middleware/hsts.coffee">an HSTS middleware</a> combined with <a href="https://github.com/artsy/force/blob/master/lib/middleware/ensure_ssl.coffee">a redirect middleware</a>, but you might also want to check out <a href="https://github.com/evilpacket/helmet">helmet</a>.</p>
+
+<p>Redirecting from HTTP to HTTPS is a compromise, it allows existing non-SSL clients and the myriad of existing links out there to keep functioning, however it exposes users to a potential risk of sending data over a non-encrypted connection, first. This is mitigated by using HSTS and by making sure session cookies carry a <code>secure=true</code> option.</p>
+
+<a name="Clickjacking.Vulnerabilities"></a>
+<h3>Clickjacking Vulnerabilities</h3>
+
+<p>Make sure your site is not vulnerable to clickjacking. These attacks rely on loading the target page in an <code>iframe</code>. A simple test is to try to embed your site in the <a href="https://gist.github.com/dblock/8a91f805e97ba2325278">code in this gist</a>.</p>
+
+<p>The standard and very simple fix is to deny framing by using the <code>X-Frame-Options</code> header with a <code>SAMEORIGIN</code> or, better, <code>DENY</code> value. There's a rather advanced explanation of this problem and the difference between these two values in an article about <a href="http://webstersprodigy.net/2012/09/13/clickjacking-google">clickjacking Google</a>. This is enabled by default in Rails, and can be turned on in node.js applications with <a href="https://github.com/evilpacket/helmet">helmet</a>.</p>
+
+<a name="Cross-Site.Scripting.and.Content.Security.Policy"></a>
+<h3>Cross-Site Scripting and Content Security Policy</h3>
+
+<p>Spend time looking for Cross-Site Scripting (XSS) vulnerabilities in your code. The majority could have been known by actually attempting to enter JavaScript into the few user inputs that we have and then going to the pages that display that content. Then examine the code for any instances that render raw HTML, usually via <code>!=</code> in Jade templates or HAML. Track down how this data is inputted into the system and check whether these need to really be raw HTML. As a rule of thumb, do not trust the data in your database or data returned from your API, and encode or sanitize HTML when rendering it. We use the <a href="https://github.com/rgrove/sanitize">Sanitize</a> gem in Ruby, as well as a <a href="https://github.com/artsy/force/commit/0902c3450a0de60ee2b3e45a08e2dab656b31d86">fix in our open-source front-end</a> for how to deal with this in a node.js app.</p>
+
+<p>Content Security Policy (CSP) also helps prevent cross-site-scripting. You can add a <code>Content-Security-Policy</code> header, or its variations, <code>X-WebKit-CSP</code> and <code>X-Content-Security-Policy</code>.</p>
+
+<a name="Preventing.User.Abuse"></a>
+<h3>Preventing User Abuse</h3>
+
+<p>Log-in as a user, note their session cookie and log the user out. If you can reuse the session cookie in a new browser, your're not actually logging users out. This is particularly problematic on public computers and seems to be an issue often exploited by man-in-the-middle malware. To fix this, you must track sessions server-side.</p>
+
+<p>Another similar problem is that all user sessions must be invalidated when a user resets their password. Imagine that you suspect that your account has been compromised, changing a password should make you safe again and the attacker who logged in as you earlier should be logged out. This is something natively supported by many session management implementations, including Devise, by adding a "salt" stored with the user record into the session cookie and comparing it after a session is deserialized.</p>
+
+<p>Finally, make sure you either lock accounts or throttle after too many login or password reset attempts.</p>
+
+<p>Another related example is when attackers can spam users with legitimate requests, such as password resets. For example, we didn't <a href="https://github.com/artsy/flare/pull/12">restrict how many SMS messages one can send</a> on our iPhone app download landing page. This particular instance had no actual benefit for the attacker, but could have really hurt our reputation. What would you say if a paying customer reported being spammed with anything coming from your company?</p>
+
+<a name="Open.Redirect"></a>
+<h3>Open Redirect</h3>
+
+<p>Review all HTTP redirects in your applications. A common problem is when you can supply a URI and be redirected to it after, for example, a social login. This, combined with an XSS, would leak your session cookies, so don't ever redirect outside of your application. Furthermore, this can be a source of an XSS by itself with data URLs, something I had never seen before.</p>
+
+<a name="Mixed.Content"></a>
+<h3>Mixed Content</h3>
+
+<p>Make sure the secure (HTTPS) pages aren't loading insecure (HTTP) javascript. A man-in-the-middle attack would enable injecting JavaScript into, otherwise, secure pages. Don't forget to check your error pages.</p>
+
+<a name="Issues.We.Won.t.Fix"></a>
+<h2>Issues We Won't Fix</h2>
+
+<p>We attempt to fix every reported issue, even very small. A single vulnerability may not be a problem in isolation, but may be exploitable in combination with another unknown issue. Still, we want to be able to disagree with the risk assessment of the security researcher. Such issues require a detailed explanation in a well articulated and prepared response, as well as a mention in a list of issues not eligible for bounty in our program's description. Here're a few examples.</p>
+
+<a name="User.Enumeration.and.Discovery"></a>
+<h3>User Enumeration and Discovery</h3>
+
+<p>Attackers often obtain databases of user e-mails and try to use those on other services with password dictionaries. When users enter the wrong password on login, you're supposed to be returning the same error message whether the account exists or not. While that would prevent user enumeration and make password attacks impractical, it's terribly unhelpful to the person trying to access your website. Many sites choose not to fix this, including Artsy. After-all, we will eventually have all of the 11 billion people on Artsy and the issue will be moot!</p>
+
+<a name="Cross-Site.Request.Forgery"></a>
+<h3>Cross-Site Request Forgery</h3>
+
+<p>CSRF is a class of attacks that attempt to force a user to execute unwanted actions on a web application in which they are currently authenticated, often without their knowledge. This can be mitigated by ensuring that the action was triggered from a legitimately rendered page within a certain period of time. CSRF was disabled on Artsy following some complicated technical issues related to caching, and is something that would cost us a lot of time and effort to bring back. It's a real problem, but not a critical one, so we explicitly list it in our bug bounty rules as ineligible for bounty.</p>
+
+<a name="User.Identity"></a>
+<h3>User Identity</h3>
+
+<p>One of the most frequently reported issues is that we don't require e-mail verification, which is by design on Artsy. We used to have email verification, but too many users found it confusing and would never confirm their e-mail addresses. We treat emails as usernames, without any additional level of trust except for manually verified users, something internal to our systems.</p>
+
+<a name="Sender.Policy.Framework"></a>
+<h3>Sender Policy Framework</h3>
+
+<p>Having a Sender Policy Framework (SPF) record increases the chances people will get emails you send. Without one, your email has a greater chance of being marked as Spam. Adding an SPF may not be as simple, especially if you use multiple thirdparty services for delivering e-mail. Furthermore, it might make forwarded e-mails go to spam.</p>
+
+<a name="Acknowledging.Security.Researchers"></a>
+<h2>Acknowledging Security Researchers</h2>
+
+<p>While most security researchers do an amazing job reporting issues, there's an unfortunately some number of bounty hunters who will dramatize issues or nag you for bounty payment or swag every other day. Many don't understand why it takes two weeks to get paid, why you disagree on their assessment of the problem, or will think that you're lying to them when you say a bug has been reported in the past by another security researcher. These are annoying and often discouraging exceptions.</p>
+
+<p>I believe in the need of acknowledging the hard work done by the security researchers by listing their name on our security page, unless they don't want to. I want to thank each and every one of them.</p>
+
+<p>I also do believe in the need to increase transparency into your process by listing the general category of issues after they have been fixed. I want users to trust us based on real data rather than on us just saying that we care about users' security and privacy. I think everyone understands that software has bugs, and I don't see any good reason to hide the security ones after they have been fixed.</p>
+
+<a name="In.Conclusion.and.a.Word.About.Education"></a>
+<h2>In Conclusion and a Word About Education</h2>
+
+<p>A security bug bounty helps our systems be more secure and our users to trust us more. But that alone is not enough. Overtime the complexity of every system increases and the development team grows. We can only succeed at earning our users' trust if we actually spend time on security as a team. This includes teaching individual contributors how to avoid similar issues or entire classes of problems. I strongly encourage you to make a lot of extra effort to explain exploit vectors to all developers, using the issues reported by the Security Bug Bounty program as a starting point.</p>
+]]></content>
+  </entry>
+  
+</feed>

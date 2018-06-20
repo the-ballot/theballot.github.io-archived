@@ -1,0 +1,799 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+
+  <title><![CDATA[Category: api | The Ballot]]></title>
+  <link href="https://www.theballot.com/blog/categories/api/atom.xml" rel="self"/>
+  <link href="https://www.theballot.com/"/>
+  <updated>2018-06-20T04:04:05-04:00</updated>
+  <id>https://www.theballot.com/</id>
+  <author>
+    <name><![CDATA[]]></name>
+    
+  </author>
+  <generator uri="http://octopress.org/">Octopress</generator>
+
+  
+  <entry>
+    <title type="html"><![CDATA[Is GraphQL The Future?]]></title>
+    <link href="https://www.theballot.com/blog/2018/05/08/is-graphql-the-future/"/>
+    <updated>2018-05-08T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2018/05/08/is-graphql-the-future</id>
+    <content type="html"><![CDATA[<p>I have seen the future, and it looks a lot like GraphQL. Mark my words: in 5
+years, newly minted full-stack app developers won’t be debating <em>RESTfulness</em>
+anymore, because REST API design will be obsolete. By the end of this post, I
+hope you'll see what I see in the promise of GraphQL as a new approach to
+client-server interaction.</p>
+
+<!-- more -->
+
+
+<p>GraphQL is taking the full-stack world by storm. In case you’re not familiar,
+GraphQL is a language-independent specification for client-server communication.
+It lets you model the resources and processes provided by a server as a
+<a href="https://en.wikipedia.org/wiki/Domain-specific_language">domain-specific language (DSL)</a>.
+Clients can use it to send scripts written in your DSL to the server to process
+and respond to as a batch.</p>
+
+<p>That’s...different from how GraphQL’s own page describes it. GraphQL is better
+known as a query language designed for clients to fetch exactly the data they
+need. While this is sort of true, I would argue that GraphQL actually fails this
+test in reality. It’s neither a query language, nor particularly graph-oriented.
+I argue that it's <em>not</em> a query language because it comes with no native
+concepts of operators and expressions that build up to queries. <em>You</em> build
+whatever facilities for specifying and fulfilling queries on your own. Likewise,
+if your data is a graph, it’s on you to expose that structure. But your requests
+are, if anything, trees.</p>
+
+<p>I’m not trying to be pedantic. I believe GraphQL succeeds at something subtler
+and more important than literally being a graph query language. I’m writing this
+piece because I kept running into difficulties approaching GraphQL from the
+standpoints of REST, graph theory, or typical query languages. As I read blog
+posts, StackOverflow Q&amp;As, issues on the GraphQL repo and the GraphQL spec
+itself, I developed a much more nuanced understanding, which I outline below.</p>
+
+<p>For brevity, the following assumes a intermediate familiarity with GraphQL,
+including its type system, syntax, and server-side implementation. If you don’t
+have this level of familiarity, I recommend going through any tutorial that
+requires you to set up a GraphQL server, not just play with the query language
+(which is how I ended up with a lot of misconceptions).
+<a href="https://graphql.org/graphql-js/">The docs for the official JavaScript server library</a>
+are a good option. I’m going to start with the basics, but only so I can put my
+own spin on those concepts, not to really illustrate them with examples.</p>
+
+<a name="A.tree.of.fetches"></a>
+<h1>A tree of fetches</h1>
+
+<p>Most applications are designed in the form of discrete pages, which are seeded
+with some tiny chunk of data—say, a key or slug for some domain object—and then
+perform a cascade of contingent fetches to get the data needed to populate the
+templates rendered to a user. This is the basis of designing applications driven
+by URL-based routing and it has been a mainstay of the MVC approach to web
+application architecture for the past decade.</p>
+
+<blockquote><p><strong>Example:</strong> At Artsy, the seed of data for rendering an artwork page could be
+the slug identifying some artwork. From this slug, we need a whole bunch more
+data: the metadata of the artwork, information about the artist(s), sales data
+if it’s available for purchase, information about the Artsy partner that owns
+it, and so on. In classic REST, this data is aggregated by a cascade of dozens
+of HTTP fetches to our backend API.</p></blockquote>
+
+<p>I wasn’t in the room when GraphQL was invented, but it seems to me that the team
+that built it made a particularly crucial insight:</p>
+
+<blockquote><p>In most cases, all of this contingent fetching forms a tree, which is more or
+less <em>fixed</em> for a given page.</p></blockquote>
+
+<p>Data from early responses contain the keys for subsequent requests, but the
+linkages between these requests are usually straightforward. So if it were
+possible to factor all this disparate fetching into one spot and encode it into
+one big “fetching tree” data structure ahead of time, this tree could be sent to
+the the server, and the server could fulfill all of the data requirements in one
+shot. This cuts out a tremendous amount of wasteful chatter between client and
+server. Even in today's broadband world, bandwidth and latency matter,
+especially for mobile users.</p>
+
+<a name="GraphQL.anatomy"></a>
+<h1>GraphQL anatomy</h1>
+
+<blockquote><p><strong>Editorial note</strong> I'm going to use the term "operation" pretty liberally
+here, but I mean it in the conceptual sense, not in the sense of the GraphQL
+spec, where it defines the semantics of an entire GraphQL request.</p></blockquote>
+
+<p>A GraphQL request always starts with at least <em>one root API operation</em> and some
+finite number of follow-ups. Idiomatically, these follow-ups are queries,
+meaning that they just retrieve data, without changing the server state in
+observable ways. GraphQL models API operations as <strong>fields</strong>. How a field works
+in GraphQL depends on its <strong>type</strong>, which falls into one of two basic
+categories:</p>
+
+<ul>
+<li><strong>Scalar</strong> types (<code>Int</code>, <code>Float</code>, <code>String</code>, <code>Boolean</code>, and <code>ID</code>, as well as
+application-defined <code>enum</code> and <code>scalar</code> types) represent the individual pieces
+of <em>data actually sent to the client</em>. Contrary how I think of the term scalar
+in other contexts, the data can be arbitrarily complex. As far as the GraphQL
+spec is concerned, scalars are just opaque blobs of data with validation and
+serialization rules. As an operation, a scalar field is terminal data fetch,
+with no follow-ups. They are the leaves of the request tree.</li>
+<li><strong>Object</strong> types (<code>type</code>, <code>union</code> and <code>interface</code>) are collections of fields.
+As an operation, an object-typed field is an intermediate operation that
+serves as the junction point for follow-up operations. But, it doesn’t
+directly return any data. They are the branches of the request tree.</li>
+</ul>
+
+
+<p>The entire model for a given API is known as its <strong>schema</strong>. Every schema has a
+root query type, whose fields serve as the API’s entry points.</p>
+
+<pre><code># The root query object type
+type Query {
+  artwork(id: ID): Artwork
+  artist(name: String)
+  # … a whole bunch more root fields
+}
+
+type Artwork {
+  title: String
+  artist: Artist
+}
+
+type Artist {
+  name: String
+}
+</code></pre>
+
+<p>A GraphQL query request begins by mentioning at least one of the fields of the
+root query object. This represents an initial query. And if that field is an
+object, <em>its</em> fields are used to specify any number of follow-up queries.
+Critically, <em>any</em> field in the request tree can take arguments, allowing a
+request to be parameterized at all depths.</p>
+
+<p>Take this query, for example:</p>
+
+<pre><code>{
+  artwork(id: "andy-warhol-campbells-soup-i-black-bean") {
+    title
+    artist {
+      name
+    }
+  }
+}
+</code></pre>
+
+<p>Here, we tell the server to look up an <code>Artwork</code> by its slug, and tell us the
+title. So far, this is just like REST. But we <em>also</em> tell it to find us the
+<code>Artist</code> for us. Importantly, object fields <em>must</em> be followed up with further
+queries, and scalar fields <em>cannot</em> be. With that in mind, it’s easy to see that
+<code>artwork</code> and <code>artist</code> are object fields, while <code>title</code> and <code>name</code> are scalar
+fields.</p>
+
+<p>Also note that the fact that there’s also an <code>artist</code> root query field actually
+has nothing to do with its presence under <code>Artwork</code>. There can be multiple paths
+to reach the same GraphQL type. This is defined explicitly by the schema.</p>
+
+<p>Usefully, the server’s response to a GraphQL request will directly mirror the
+shape of the request itself. The result of the request above looks like:</p>
+
+<pre><code>{
+  "data": {
+    "artwork": {
+      "title": "Campbell's Soup I: Black Bean",
+      "artist": {
+        "name": "Andy Warhol"
+      }
+    }
+  }
+}
+</code></pre>
+
+<a name="GraphQL.as.a..meta-.scripting.language"></a>
+<h1>GraphQL as a (meta-)scripting language</h1>
+
+<p>Let’s dig a little deeper into the scripting language interpretation of GraphQL,
+because this is the crux of how I think people should think of GraphQL. If I
+were to guess, I think Facebook…</p>
+
+<ul>
+<li>…knows this is true. After all, much of the spec is devoted to
+<a href="http://facebook.github.io/graphql/October2016/#sec-Execution">the execution model of GraphQL</a>.</li>
+<li>…might have backed into this design. It’s well known that they think of their
+data as a graph, so I suspect GraphQL might have begun literally as a "graph
+query language", analogous to <a href="https://en.wikipedia.org/wiki/SQL">SQL</a> for
+relational databases.</li>
+<li>…thinks that this too difficult to explain, and thus, settled on the query
+language paradigm.</li>
+</ul>
+
+
+<p>There are a couple reasons GraphQL might not look like a scripting language to
+you. It didn’t to me, at first! After all, you don't write your request as list
+of statements. It doesn’t have a concept of variables, other than parameters to
+the whole document. There are no looping constructs or recursion. But I think a
+closer look might shift your perspective.</p>
+
+<a name="Control.flow"></a>
+<h2>Control flow</h2>
+
+<p>It’s true that a GraphQL request doesn’t follow the same vertical sequence of
+steps model familiar to most programming languages. But sequencing <em>does</em> exist.
+It’s just represented by calling nested fields of object types, terminating in a
+scalar field. See this request:</p>
+
+<pre><code>{
+  step1(arg: “something”) {
+    step2 {
+      step3(arg: "something else”) {
+        outputScalar
+      }
+    }
+  }
+</code></pre>
+
+<p>In a more traditional language, this would look more like:</p>
+
+<pre><code>step1(“something”)
+step2()
+return step3(“something else”)
+</code></pre>
+
+<p>So, sequencing got a bit more verbose, but it <em>is</em> there.</p>
+
+<p>Interestingly, GraphQL reserves vertical stacking for something that’s an
+afterthought in most languages: <em>concurrency</em>. (Granted, there’s no way to
+<a href="https://en.wikipedia.org/wiki/Synchronization_(computer_science)">synchronize</a>
+concurrent paths of execution.) I’m not going to quote
+<a href="https://facebook.github.io/graphql/October2016/">the spec</a>, but search it
+yourself, and you can find the word “parallel” in there several times. This
+design is intentional.</p>
+
+<a name="Variables"></a>
+<h2>Variables</h2>
+
+<p>One of the core aspects of programming is the ability to pass intermediate data
+around. The most basic way languages accomplish this is with named variables.
+Many languages allow variables to be reassigned; some don't. GraphQL doesn’t
+have them at all! But that doesn’t mean data can’t be propagated.</p>
+
+<p>GraphQL supports one kind of propagation, which is the propagation of context
+down the sequence of resolvers. It happens implicitly and invisibly. Exactly
+what data is propagated and what that means is up to you.</p>
+
+<p>How does this work? Well, if you have worked on GraphQL server code, you know
+that every field has a <strong>resolver</strong>.</p>
+
+<ul>
+<li>For scalar fields, the resolver is responsible for returning the actual data
+that the client sees.</li>
+<li>For object fields, the resolver instead returns a hidden chunk of data that is
+forwarded along to the resolvers of the fields contained in the object. So
+these resolvers get their parent object’s hidden data, the global context, and
+any arguments, and they can use all of these values to produce their value.</li>
+</ul>
+
+
+<p>Often, we just resolve an object field to a domain object. Its scalar fields
+might correspond to properties of that domain object and its object fields might
+correspond to related objects. But the architecture is more powerful than this!
+A deeply nested field can potentially be the result of the resolved values of
+all its parents. It all depends on how you design your resolvers to work
+together.</p>
+
+<p>This pattern reminds me a bit of when <a href="https://api.jquery.com/">jQuery</a> first
+clicked for me. A lot of details are propagated invisibly within your <code>jquery</code>
+object as you chain method calls to refine your DOM selections.</p>
+
+<a name="Looping.and.recursion"></a>
+<h2>Looping and recursion</h2>
+
+<p>GraphQL doesn’t have them, plain and simple. Consequently, the GraphQL DSLs you
+design are not
+<a href="https://en.wikipedia.org/wiki/Turing_completeness">Turing-complete</a>--they will
+always halt in a finite amount of steps. This is really important, because it
+prevents clients from being able to send servers on errands that will never end.
+Of course, the <em>implementations</em> of field resolvers on the server are free to do
+whatever they want in full Turing-complete glory.</p>
+
+<a name="Putting.it.together"></a>
+<h2>Putting it together</h2>
+
+<p>My point here is that the execution model of GraphQL is in many ways just like a
+scripting language interpreter. The limitations of its model are strategic, to
+keep the technology focused on client-server interaction. What's interesting is
+that you as a developer provide nearly all of the definition of what operations
+exist, what they mean, and how they compose. For this reason, I consider GraphQL
+to be a <em>meta-scripting language</em>, or, in other words, a toolkit for building
+scripting languages.</p>
+
+<a name="The.post-REST.world"></a>
+<h1>The post-REST world</h1>
+
+<p>Subtly, this paradigm is a sharp step away from a whole body of knowledge that
+models APIs as resources with fixed verbs, which we know as REST. It’s more
+appropriate to think of GraphQL requests as a script of remote procedure calls
+(RPC). From this perspective, the design of the schema is a lot less about data
+modeling than it is a question of how you want your entire API to be traversed.
+This encourages a verb-oriented mindset.</p>
+
+<a name="Verb.orientation"></a>
+<h2>Verb orientation</h2>
+
+<p>Speaking of verbs, you can think of "fetch" as being the default verb in
+GraphQL. You model other verbs as <strong>mutations</strong>. I delayed learning about
+mutations, because I thought they must be way more complex than queries. Quite
+the opposite! They all sit in one big, flat bucket at the root of your schema,
+as the fields of the root <code>mutation</code> type. These fields have a type too, and if
+it is an object type, then you can issue effectively any number of follow-up
+queries after your mutation completes. Learning about mutations was when it
+really dawned on me that <em>fields are just function calls</em>.</p>
+
+<p>Mutations are a major break with REST. In GraphQL, your mutations are defined
+under root mutation object that is separate from your root query object.
+Therefore, you are immediately asked to accept that they don't represent verbs
+on a resource, but verbs <em>on your entire service</em>. This eliminates one of REST’s
+key weak points, namely that complex operations that touch multiple parts of an
+application’s data model are difficult to model as a PUT, DELETE, POST, or PATCH
+on a single resource. In my experience, this "impedance mismatch” between API
+modeling and domain modeling has led to the worst aspects of my HTTP API
+designs.</p>
+
+<a name="REST.is.dead..Long.live.REST."></a>
+<h2>REST is dead. Long live REST!</h2>
+
+<p>It is borderline heresy in some circles to suggest that REST API design is dead.
+But I’m saying it. Don’t get me wrong, REST is still a great paradigm for
+serving static assets. It’s the <em>API</em> part I have an issue with.</p>
+
+<p>Ironically, I think there’s a strong argument that a GraphQL request document
+maps very nicely to the concept of a resource:</p>
+
+<ul>
+<li>It doesn’t change that often, and you could PUT it to store it, perhaps using
+a hash of the request document to form the URL.</li>
+<li>GraphQL queries map elegantly to GET operations on a stored query request
+document’s URL.</li>
+<li>GraphQL mutations map decently to POST operations to a stored mutation request
+document’s URL.</li>
+<li>The arguments of a GraphQL request map elegantly to HTTP query parameters.</li>
+</ul>
+
+
+<p>In other words, GraphQL is simply another formalization layer of HTTP-based API
+design. Think of it as being akin to the way JSON representation changed the way
+we think about client-server communication in full-stack apps. It’s not so much
+that REST will cease to exist, but that it will fade to the background, as an
+implementation detail of GraphQL application frameworks.</p>
+
+<a name="GraphQL.is.not.your.data.model"></a>
+<h1>GraphQL is not your data model</h1>
+
+<p>Another realization I’ve had in learning to apply GraphQL is that the schema is
+<em>not</em> the actual data model, and therefore raw GraphQL responses cannot be
+directly used by the client. You <em>could</em> choose to think of it this way, but
+you’re likely to run into some conundrums:</p>
+
+<ul>
+<li><a href="https://github.com/facebook/graphql/issues/101">There is no free-form map data structure</a>.
+There are only objects with fixed fields, scalars, and lists.</li>
+<li>It is difficult to design abstractions over types.</li>
+<li>The object tree you get in return from a query request is neither normalized
+nor is it an object graph (multiple copies of the same object may be
+returned).</li>
+<li>Commonly used protocol patterns, like
+<a href="https://facebook.github.io/relay/docs/graphql-connections.html">the connection pattern</a>,
+require explicit modeling within your schema.</li>
+<li>The limitations of GraphQL's type system make certain modeling techniques
+difficult to directly model, such as
+<a href="https://stackoverflow.com/questions/47933512/representing-enum-object-variant-type-in-graphql">singletons within unions</a>.</li>
+<li>Recursive data types can’t be queried to undefined depth in their nested form.
+Think of your comment board with nested replies.</li>
+</ul>
+
+
+<p>The upshot of this is that there likely needs to be some process of conversion
+from your native data model on your server to your GraphQL API, and then again
+from your client’s API consumption code to its internal data model.
+<a href="https://facebook.github.io/relay/">Relay</a> and
+<a href="https://www.apollographql.com/client">Apollo</a> serve this purpose. Their utility
+wasn’t immediately clear to me when I naively imagined GraphQL to literally be a
+system for reproducing a slice of server-side object graph. (Hmm, where might I
+have gotten that impression from?)</p>
+
+<p>A lot of discussion in the GraphQL space centers on data modeling—the nouns.
+There’s a lot of debate and worthwhile work to be done on that front, but one of
+my primary reasons for writing this piece is to think about the verbs. What
+happens when you think of GraphQL requests as not just verbs, but <em>chains</em> of
+verbs? My inkling is that you start to be able to represent services in a much
+more fluid way. Complex processes no longer have to be orchestrated by API
+clients or hidden behind unwieldy black-box POST endpoints. Instead, clients can
+compose processes from the easily inspectable building blocks that the server
+provides via its GraphQL schema. That’s a whole different approach to API
+design.</p>
+
+<a name="So..where.to.now."></a>
+<h1>So, where to now?</h1>
+
+<p>I began by asserting that the future looks a lot <em>like</em> GraphQL. But I did not
+say that GraphQL <em>is the future</em>. I hedge because there are a lot of unanswered
+questions and some pain points within today’s GraphQL, even as it paints a
+compelling picture of the future. I may write a follow-up piece bringing up some
+of these gripes. At the moment, Facebook still largely controls the development
+of the technology and it has been slow to evolve. Arguably, this is a good
+thing, as the full-stack community continues to digest the basic concepts. But
+I’m sure impatient folks will attempt forks or create parallel technologies. How
+it all balances out is anybody’s guess.</p>
+
+<p>Nonetheless, today’s GraphQL is already a tremendous leap forward from REST API
+design. It much more directly models the sort of data traversals a client needs
+to perform in order to do its job. I expect significant refinement within this
+space over the next couple years. And after a couple more, the days before
+GraphQL will be just another source of lore for grizzled vets like us.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Artsy API Ready for Production Non-Commercial Use]]></title>
+    <link href="https://www.theballot.com/blog/2017/07/23/api-open-non-commercial/"/>
+    <updated>2017-07-23T00:00:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2017/07/23/api-open-non-commercial</id>
+    <content type="html"><![CDATA[<p>About 3 years ago, dB. announced that Artsy <a href="/blog/2014/09/12/designing-the-public-artsy-api/">had a public API</a>.</p>
+
+<blockquote><p>The Artsy API currently provides access to images of historic artwork and related information on <a href="https://artsy.net">artsy.net</a> for educational and other non-commercial purposes. You can try it for playing, testing, and learning, but not yet for production. The scope of the API will expand in the future as it gains some traction.</p></blockquote>
+
+<p>We've wrapped up some legal work around the developer API terms and services, <a href="https://github.com/artsy/doppler/pull/119">the PR is here</a> and I'm happy to announce that the API is ready for non-commercial production use.</p>
+
+<p>The <strong>TDLR</strong> <a href="https://developers.artsy.net/terms">Terms and Conditions</a> today for using the Artsy API is:</p>
+
+<ul>
+<li>Non-commercial use only.</li>
+<li>You only get access to public-domain artworks.</li>
+</ul>
+
+
+<p>The API:</p>
+
+<ul>
+<li>Is a <a href="https://robots.thoughtbot.com/writing-a-hypermedia-api-client-in-ruby">Hypermedia</a> API.</li>
+<li>Covers <a href="https://developers.artsy.net/docs/artists">Artists</a>, <a href="https://developers.artsy.net/docs/artworks">Artworks</a>, <a href="https://developers.artsy.net/docs/genes">Genes</a>, <a href="https://developers.artsy.net/docs/shows">Shows</a>, <a href="https://developers.artsy.net/docs/partners">Partners</a> and <a href="https://developers.artsy.net/docs/">more</a>.</li>
+</ul>
+
+
+<p>If you have a great idea for an app that can use public-domain data, then the Artsy API is the right place to look: <a href="https://developers.artsy.net/">https://developers.artsy.net</a>.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[JSON Web Tokens: Artsy's Journey]]></title>
+    <link href="https://www.theballot.com/blog/2016/10/26/jwt-artsy-journey/"/>
+    <updated>2016-10-26T11:03:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2016/10/26/jwt-artsy-journey</id>
+    <content type="html"><![CDATA[<p>At Artsy we currently have thousands of client applications hitting our API and requesting authentication. When a user successfully authenticates through one of these clients, we want to embed basic user and application data in the resulting token rather than have to look up a session ID in the database on each request. For that we want to use JWT.</p>
+
+<p>JWT (JSON Web Token) is a self-contained, secure and standard way of transmitting data between applications and clients as JSON objects. Using JWTs lets us use a standardized technology to cut our authentication workflow down by one round-trip.</p>
+
+<p>We've recently switched our authentication flow to use <a href="https://jwt.io">JWT</a>, and I'm going to cover what they are, how we've used them and how we're handling the transition.</p>
+
+<!-- more -->
+
+
+<p>JWT has three separate sections which are separated by <code>.</code>: header, payload and signature.</p>
+
+<p><code>&lt;header&gt;.&lt;payload&gt;.&lt;signature&gt;</code></p>
+
+<p>Once decoded:</p>
+
+<ul>
+<li>The header section contains JSON defining the type of token and how to treat its contents.</li>
+<li>The payload section includes <em>claims</em> and data provided by the token issuer about the user and application (things like token expiration time, user id, etc.)</li>
+<li>The signature section is used to verify the sender of the JWT and make sure token wasn't modified along the way.</li>
+</ul>
+
+
+<p><img src="/images/2016-10-26-jwt-artsy-journey/jwt-example.png" alt="JWT example" /></p>
+
+<p><a href="https://jwt.io/introduction/" target="_blank">JWT</a> and <a href="https://tools.ietf.org/html/rfc7519" target="_blank">RFC 7519</a> provide more details about each section of JWT and how encoding, decoding and verification work.</p>
+
+<a name="Where.we.were"></a>
+<h1>Where we were</h1>
+
+<p>After a successful login, our API would generate a custom JSON object including some basic information about the user and application, then encrypt it using a single server-side secret.</p>
+
+<p>For every authenticated request we would have to decrypt the token, make sure the user and application were valid and the application still had access to our API. We were already <em>stateless</em> since we didn't store tokens in our database. However, client applications had to make an API call to get any information about the authenticated user.</p>
+
+<a name="Where.we.are.going"></a>
+<h1>Where we are going</h1>
+
+<p>We want to keep our current auth flow which is already stateless (tokens are not stored in database) and mainly replace our in-house generated access token with a more standard JWT. This let's us:</p>
+
+<ul>
+<li>Allow client applications to decode and use basic information from our token. This wasn't possible with our custom encrypted token. With JWT, each app can decode the token and get basic data out of it, check if the token is expired or not, etc. If the client wants to make sure a token is still valid, it can still call the API, like before, to re-validate and get more data about it.</li>
+<li>Possibly include different data in JWT payload for different applications. Some clients may request user roles with respect to galleries and others with respect to auction houses.</li>
+<li><p>Follow a well-defined standard and use existing libraries for creating and reading the token. JWT has a decent set of reserved <em>claims</em> which can be used to describe the token in a unified language. A few examples:</p>
+
+<ul>
+<li><code>exp</code>: Expiration time.</li>
+<li><code>iat</code>: Time the token was issued.</li>
+<li><code>iss</code>: Issuer of the token (ex. our main API)</li>
+<li><code>aud</code>: Audience of the token (ex. our mobile application)</li>
+<li><code>jti</code>: A unique identifier for the token</li>
+</ul>
+</li>
+</ul>
+
+
+<p>Most JWT libraries honor these claims and can automatically validate them so we don't have to handle things like expiration ourselves.</p>
+
+<p>In our new approach, every client application has its own secret key. When we get a new login for a specific application:</p>
+
+<ul>
+<li>We find the application in our database to make sure it is still valid and has access to our API.</li>
+<li>We use the application's secret key and generate a JWT</li>
+</ul>
+
+
+<p>When we get an authenticated request:</p>
+
+<ul>
+<li>We decode the JWT without verifying the signature.</li>
+<li>From the JWT payload we get the <code>aud</code> (audience) attribute defining for which application this token was generated.</li>
+<li>We fetch the client application corresponding to the <code>aud</code> and verify the JWT's signature using that application's secret key.</li>
+</ul>
+
+
+<a name="Transition"></a>
+<h1>Transition</h1>
+
+<p>Changing authentication tokens can be tricky when we already have many clients using our old access token format. It turns out that since we aren't changing the authentication flow, it's easier than we might expect. We simply have to continue decoding the legacy token format until they've all expired or been replaced by JWTs.</p>
+
+<p>Once we go live with this change:</p>
+
+<ul>
+<li>Any new successful authentication will use the JWT format.</li>
+<li>When validating existing tokens, we'll simply test if the token appears to be in the JWT format. If so, we'll decode it and validate the signature. If not, we'll attempt to decrypt it as a legacy token.</li>
+<li>Every time we get a legacy token, we increment a <code>legacy.token</code> metric via <a href="https://github.com/etsy/statsd">Statsd</a>. This way we can monitor the rate of legacy tokens we receive and decide when we can safely remove support for the legacy format. As you can see, legacy tokens are being replaced by the new format over time:</li>
+</ul>
+
+
+<p><img src="/images/2016-10-26-jwt-artsy-journey/graphite-legacy-tokens.png" alt="Tracking legacy tokens" /></p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Designing the Public Artsy API]]></title>
+    <link href="https://www.theballot.com/blog/2014/09/12/designing-the-public-artsy-api/"/>
+    <updated>2014-09-12T12:21:00-04:00</updated>
+    <id>https://www.theballot.com/blog/2014/09/12/designing-the-public-artsy-api</id>
+    <content type="html"><![CDATA[<p>Today we are happy to announce that we're making a new public API generally available, along with over 26,000 artworks from many of our institutional partners.</p>
+
+<p>The Artsy API currently provides access to images of historic artwork and related information on <a href="https://artsy.net">artsy.net</a> for educational and other non-commercial purposes. You can try it for playing, testing, and learning, but not yet for production. The scope of the API will expand in the future as it gains some traction.</p>
+
+<p><a href="https://developers.artsy.net"><img src="/images/2014-09-12-designing-the-public-artsy-api/the-art-world-in-your-app.png" border="0"></a></p>
+
+<p>If you just want to use the API, you can stop reading here and head to the <a href="https://developers.artsy.net/">developers.artsy.net</a> website. (The developers website itself is a classic Rails + Bootstrap example and is also <a href="https://github.com/artsy/doppler">open-source</a>.)</p>
+
+<p>In this post we will step back and describe some of the technical decisions made during the development of the new API.</p>
+
+<!-- more -->
+
+
+<a name="First..Make.All.The.Mistakes"></a>
+<h2>First, Make All The Mistakes</h2>
+
+<p>Artsy has been developing a homegrown API over the last four years, consisting of almost 400 endpoints and exposing over 100 domain models. It's probably one of the largest <a href="https://github.com/intridea/grape">Ruby Grape</a> implementations and it has been battlefield-tested by the dozens of services that we have built around it, starting with our <a href="https://github.com/artsy/force">recently open-sourced artsy.net website</a>. The core API project itself is unfortunately not public.</p>
+
+<p>As with all legacy code with many client dependencies, our API has accumulated a staggering number of architectural faults, which have become impossible to work ourselves out of without a major rewrite. When thinking about a public API we went back to the drawing board with a more pragmatic approach.</p>
+
+<a name="Use.Hypermedia"></a>
+<h2>Use Hypermedia</h2>
+
+<p>One of the common problems of being an API client is figuring out which routes an API provides or what data is available. For example, what can I do with this specific artwork? Documentation helps, but it often lacks such context. Furthermore, URLs are long and cumbersome to reference, parse and use. How can we make the API more developer-friendly and discoverable? Our answer was to settle on a well-known Hypermedia format. We chose <a href="http://stateless.co/hal_specification.html">HAL+JSON</a> because it is disciplined and very complete. Let me illustrate by example.</p>
+
+<p>The <a href="https://api.artsy.net/api">API root</a> lists all the API routes within "_links", such as "artists".</p>
+
+<pre><code class="json">{
+  _links: {
+    artists: {
+      href: "https://api.artsy.net/api/artists"
+    },
+    ...
+  }
+}
+</code></pre>
+
+<p>If you fetch artists from the above URL, they will be returned in the same JSON+HAL format. Each artist will include a number of links, notably to the artist's artworks. This is a perfect example of "context".</p>
+
+<pre><code class="json">{
+  _embedded: {
+    artists: [
+      {
+        id: 123,
+        _links: {
+          artworks: {
+            href: "https://api.artsy.net/api/artworks?artist_id=123"
+          }
+        }
+      }
+    ]
+  }
+}
+</code></pre>
+
+<p>This is very powerful and makes it possible to write a generic API client that consumes any HAL+JSON API with just a bit of meta-programming. For Ruby, we provide examples using <a href="https://github.com/codegram/hyperclient">hyperclient</a>. Here's a more complete example that retrieves a well-known artist, <a href="https://artsy.net/artist/gustav-klimt">Gustav Klimt</a>, and a few of his works.</p>
+
+<pre><code class="ruby">require 'hyperclient'
+
+api = Hyperclient.new('https://api.artsy.net/api').tap do |api|
+  api.headers.update('Accept' =&gt; 'application/vnd.artsy-v2+json')
+  api.headers.update('X-Xapp-Token' =&gt; ...)
+end
+
+artist = api.links.artist.expand(id: '4d8b92b64eb68a1b2c000414') # Gustav Klimt
+puts "#{artist.attributes.name} was born in #{artist.attributes.birthday} in #{artist.attributes.hometown}"
+
+artist.links.artworks.embedded.artworks.each do |artwork|
+  puts artwork.attributes.title
+end
+</code></pre>
+
+<a name="Provide.Canonical.URLs.for.Resources"></a>
+<h2>Provide Canonical URLs for Resources</h2>
+
+<p>In the past we returned different JSON payloads for a resource when it appeared within a collection vs. when it was retrieved individually. We have also developed solutions such as <a href="https://github.com/dblock/mongoid-cached-json">mongoid-cached-json</a> to deal with this in a declarative way. However, clients were burdened to merge data. For example, our iOS application had to deal with the fact that different data existed in the local store for the same artwork depending on how a user navigated to it in the app.</p>
+
+<p>With the new API each resource has a canonical, uniquely identifying, "self" link which is used to reference it from other resources. When a client encounters such a link and has already downloaded the resource, it can just swap the data without making an HTTP request. This is only possible because every single URL maps 1:1 with a specific JSON response - there're no two data responses possible for the same URL. The retrieval of such data can be solved by a generic crawler - get a resource, fetch dependent resource links, iterate until you run out of links. Storage is even simpler and doesn't have to know anything about our domain model since it just maps URLs to JSON bodies.</p>
+
+<a name="Partition.Data.and.Perform.Access.Controls.at.API.Level"></a>
+<h2>Partition Data and Perform Access Controls at API Level</h2>
+
+<p>Because we decided not to return two different types of responses for a given model, we needed to partition data at the model level. For example, we introduced publicly available <a href="https://developers.artsy.net/docs/users">Users</a> and private <a href="https://developers.artsy.net/docs/user_details">User Details</a>. Access controls are now done exclusively at the API level.</p>
+
+<p>The API developer must simply answer the question of whether a client is authorized to retrieve a resource or not. The API will return a 403 or 404 otherwise and it's not necessary to customize the response for different types of access.</p>
+
+<a name="Be.Disciplined.About.Data.Access.and.NxM.Queries"></a>
+<h2>Be Disciplined About Data Access and NxM Queries</h2>
+
+<p>The performance of APIs that return collections of objects has been a constant struggle. The initial API design attempted to help clients make the least amount of HTTP requests possible, often requiring many NxM server-side queries. This actually had a profoundly negative impact on overall performance and user experience than we have ever anticipated. Servers had to allocate a lot more memory to parse, render and cache very large JSON payloads, also causing larger garbage collection cycles. Web applications seemed slower because a lot of data had to be retrieved to render anything on initial page load. Mobile clients spend a lot more time parsing huge JSON payloads, requiring a lot of CPU and yielding rarely. This created a very sluggish user experience and much longer delays waiting for background processing to finish. To mitigate this and keep our API response times low on the server we had to leverage complicated caching schemes with <a href="https://github.com/artsy/garner">garner</a> and had to fine-tune Mongoid's eager-loading endpoint by endpoint.</p>
+
+<p>For the new API we decided to never return relational data for a given model and refactor relations at the API model level when necessary. For example, we do not return artist information with a given artwork, but we do return a collection of artist links (an artwork can be created by a group of artists).</p>
+
+<pre><code class="json">_embedded: {
+    artist_links: [
+      {
+        id: "4fe8862daa12fb00010017b9",
+        _links: {
+          artist: {
+            href: "https://api.artsy.net/api/artists/4fe8862daa12fb00010017b9"
+          }
+        }
+      }
+    ],
+  }
+}
+</code></pre>
+
+<p>We can still leverage the fact that we do have embedded objects in MongoDB and the fact that HAL supports embedded data. For example, we always return editions embedded within an artwork. Being disciplined about this allows the server to make one database query for one API request.</p>
+
+<p>Furthermore, creating such rigid rules forces us to never optimize for a specific client's scenario. That said, we still want to make life easy for developers that need bulk loading of various resources. We plan to implement a <a href="http://techblog.netflix.com/2012/07/embracing-differences-inside-netflix.html">Netflix API</a>-style middleware, where you can supply a set of URLs and get back a single, full JSON response with many different embedded resources. HAL+JSON's disciplined structure makes mixing data very easy.</p>
+
+<a name="Use.Media.Types.and.Accept.Headers.for.Versioning"></a>
+<h2>Use Media Types and Accept Headers for Versioning</h2>
+
+<p>Our initial API lives under a versioned URL which includes "v1". For the new API we decided to adopt a different model and use an "Accept" header which currently takes an optional "application/vnd.artsy-v2+json" media type.</p>
+
+<pre><code>$ curl 'http://api.artsy.net/api' -H 'Accept:application/vnd.artsy-v2+json'
+</code></pre>
+
+<p>Accept headers in the API context can be used to indicate that the request is specifically limited to an API version. Our API will serve a backward compatible format by default. However, when we decide change the format of a resource we will increment the API version and require a newer value in the header to retrieve it. The new version can become the default only after the old version has been fully deprecated.</p>
+
+<a name="Create.a.Flat.API.Structure.and.Leverage.302.Redirects"></a>
+<h2>Create a Flat API Structure and Leverage 302 Redirects</h2>
+
+<p>Our old API served all artworks from "/artworks" and artworks belonging to a partner from "/partner/:id/artworks". This was convenient, but made obsolete by a Hypermedia API. API URL structure no longer matters, because you no longer have to build URLs yourself, but follow links instead.</p>
+
+<p>We decided to expose all models at the root and to use query string parameters for filtering. The API uses a plural for all routes, so you can query both "/artworks" and "/artworks/:artwork_id". At the Hypermedia API root level those differences are expressed in a declarative way in the shape of link templates with a singular (an artwork) or a plural (artworks) key, and all possible parameters.</p>
+
+<pre><code class="json">{
+  _links: {
+    artworks: {
+      href: "https://api.artsy.net/api/artworks{?public,artist_id}",
+      templated: true
+    },
+    artwork: {
+      href: "https://api.artsy.net/api/artworks/{id}",
+      templated: true
+    }
+  }
+}
+</code></pre>
+
+<p>We leverage 302 redirects extensively. For example, querying "/current_user" redirects to "/users/:user_id" with a 302 status code (we cannot serve different content per user at the root of the API, as explained in a section above). Another good example is that the current API only provides access to public domain artworks, so if you navigate to "/artworks", you will currently be redirected to "/artworks?public=true", making this scheme future-proof.</p>
+
+<a name="Do.Not.Paginate.with.Pages.and.Offsets"></a>
+<h2>Do Not Paginate with Pages and Offsets</h2>
+
+<p>Our original API accepted "page" or "offset" parameters. This was rather problematic for changing collections. Consider what happens when you are on page 5 and an item is inserted on page 4. Your next set of results for page 6 will include a duplicate that has just moved from page 5 onto page 6. Similarly, if an item was removed from page 4, a request to page 6 will skip an item that now appears on page 5.</p>
+
+<p>Our new API returns subsets of collections with "next" links and optional counts. To fetch a subsequent page, follow the "next" link, which accepts an opaque "cursor" (internally we use the <a href="https://github.com/dblock/mongoid-scroll">mongoid-scroll</a> Ruby gem). The cursor retains position in a collection, including when an item has been deleted.</p>
+
+<pre><code class="json">{
+  total_count: 26074,
+  _links: {
+    self: {
+      href: "https://api.artsy.net/api/artworks?public=true"
+    },
+    next: {
+      href: "https://api.artsy.net/api/artworks?cursor=...&amp;public=true"
+    }
+  }
+}
+</code></pre>
+
+<p>We also wanted to solve the problem of querying different page sizes as we often wanted to retrieve just a couple of items quickly on an initial page load, then make larger requests for subsequent pages as the user scrolled, or vice-versa. You can now supply "size" to all collection APIs and a cursored approach makes it possible to vary the number on every request.</p>
+
+<p>To get the "total_count", we decided to require clients to append "?total_count=true" to the query string. It's not necessary to do all that counting work on the server side if you're not going to use the data.</p>
+
+<a name="Standardize.Error.Format"></a>
+<h2>Standardize Error Format</h2>
+
+<p>We use HTTP error codes, however we also use JSON data that comes with those errors for additional, often humanly readable descriptions. We settled on a standard error format that includes a "type" and a "message". For example, a 401 Unauthorized response will also carry the following payload.</p>
+
+<pre><code class="json">{
+  type: "auth_error",
+  message: "The access token is invalid or has expired."
+}
+</code></pre>
+
+<a name="Conclusion"></a>
+<h2>Conclusion</h2>
+
+<p>We tried to stay pragmatic with our approach and still have time and room for improvements. We would love to hear from you on our <a href="http://groups.google.com/group/artsy-api-developers/subscribe">API developers mailing list</a> and hope you'll give our new API a try at <a href="https://developers.artsy.net/">developers.artsy.net</a>.</p>
+]]></content>
+  </entry>
+  
+  <entry>
+    <title type="html"><![CDATA[Improving Performance of Mongoid-Cached-Json]]></title>
+    <link href="https://www.theballot.com/blog/2013/01/20/improving-performance-of-mongoid-cached-json/"/>
+    <updated>2013-01-20T21:21:00-05:00</updated>
+    <id>https://www.theballot.com/blog/2013/01/20/improving-performance-of-mongoid-cached-json</id>
+    <content type="html"><![CDATA[<p>Last year, we have open-sourced and made extensive use of two Ruby libraries in our API: <a href="https://github.com/dblock/mongoid-cached-json">mongoid-cached-json</a> and <a href="https://github.com/artsy/garner">garner</a>. Both transform the procedural nightmare of caching and JSON generation into a declarative and easily manageable DSL. It was worth the investment, since our service spends half of its time generating JSON and reading from and writing to Memcached.</p>
+
+<p>Today we've released mongoid-cached-json 1.4 with two interesting performance improvements.</p>
+
+<!-- more -->
+
+
+<a name="Bulk.Reference.Resolving.with.a.Local.Cache"></a>
+<h2>Bulk Reference Resolving with a Local Cache</h2>
+
+<p>Consider an array of database model instances, each with numerous references to other objects. It's typical to see such instances reference the same object: for example we have an <code>Artwork</code> that references an <code>Artist</code>. It's common to see multiple artworks reference the same artist in a collection. Retrieving the artist from cache every time it is referenced is clearly inefficient.</p>
+
+<p><code>Mongoid::CachedJson</code> will now collect all JSON references, then resolve them after suppressing duplicates, in-place within the JSON tree. This significantly reduces the number of cache queries.</p>
+
+<p>Note, that while this optimization reduces load on the Memcached servers, there's a cost of doing additional work after collecting the entire JSON in Ruby.</p>
+
+<a name="Fetching.Cache.Data.in.Bulk"></a>
+<h2>Fetching Cache Data in Bulk</h2>
+
+<p>Various cache stores, including Memcached, support bulk read operations. The <a href="https://github.com/mperham/dalli">Dalli</a> gem, which we use in production, exposes this via the <code>read_multi</code> method. With the bulk reference optimization above we now have the entire list of keys to query from cache, at once. <code>Mongoid::CachedJson</code> will always invoke <code>read_multi</code> where available, which significantly reduces the number of network roundtrips to the cache servers.</p>
+
+<p>This is a good example of where declarative models and DSLs have tremendous advantages in enabling massive improvements across the board. Imagine making the <code>read_multi</code> optimization in hundreds of API endpoints!</p>
+
+<a name="Benchmarks"></a>
+<h2>Benchmarks</h2>
+
+<p>With the above optimizations the library does more work in order to make less roundtrips to Memcached over the network. Since the network is often the slowest part in any large scale system, the overall production performance should be better as long as we can obtain similar throughput in ideal network conditions on localhost. We've added some common case benchmarks in <a href="https://github.com/dblock/mongoid-cached-json/blob/master/spec/benchmark_spec.rb">spec/benchmark_spec.rb</a> and ran them against 1.2.3 and 1.4.0 to obtain <a href="https://gist.github.com/4583039">these results</a>. The overall performance gain averaged 14.6%, which is quite significant. With real world data in a production environment we're seeing 15-50% less time spent in Memcached, depending on the API.</p>
+
+<a name="Links"></a>
+<h2>Links</h2>
+
+<p>The concepts behind these improvements should be attributed to <a href="https://github.com/aaw">@aaw</a> and <a href="https://github.com/macreery">@macreery</a>. If you want to learn more about the above-mentioned libraries, check out the following links:</p>
+
+<ul>
+<li><a href="http://confreaks.com/videos/986-goruco2012-from-zero-to-api-cache-w-grape-mongodb-in-10-minutes">From Zero to API-Cache w/ Grape and MongoDB</a>, video recorded at GoRuCo</li>
+<li><a href="/blog/2012/02/20/caching-model-json-with-mongoid-cached-json/">Caching Model JSON with Mongoid-Cached-Json</a></li>
+<li><a href="/blog/2012/03/23/simplifying-model-level-json-versioning-with-mongoid-cached-json/">Simplifying Model Level Versioning with Mongoid-Cched-Json</a></li>
+<li><a href="/blog/2012/05/30/restful-api-caching-with-garner/">RESTful API Caching with Garner</a></li>
+</ul>
+
+]]></content>
+  </entry>
+  
+</feed>
